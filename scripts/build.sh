@@ -7,6 +7,8 @@ set -euo pipefail # exit on error
 
 go mod init CHIMERA
 go get gopkg.in/yaml.v3
+go get github.com/gofiber/fiber/v2
+go get github.com/gofiber/websocket/v2
 
 
 

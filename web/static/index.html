@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,10 +9,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body>
 
+<body>
     <div class="app-container">
-        
         <section class="panel chat-panel">
             <header>
                 <div class="brand">
@@ -22,20 +22,18 @@
                     <div class="indicator"></div>
                 </div>
             </header>
-
             <div id="chat-history" class="content-area">
                 <div class="message bot">
                     <div class="avatar"><i class="fa-solid fa-robot"></i></div>
                     <div class="text">Sistem başlatıldı. Emirlerinizi bekliyorum, Mefamex.</div>
                 </div>
             </div>
-
             <div class="input-area">
                 <input type="text" id="user-input" placeholder="Bir görev girin... (Örn: Qwen 14b ile kod analizi yap)" autocomplete="off">
                 <button id="send-btn"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </section>
-
+        <div class="resizer" id="dragger" role="separator" aria-orientation="vertical" title="Sürükleyerek genişlik ayarla"></div>
         <section class="panel logs-panel">
             <header>
                 <div class="brand">
@@ -43,7 +41,6 @@
                 </div>
                 <button id="clear-logs" class="icon-btn" title="Temizle"><i class="fa-solid fa-trash"></i></button>
             </header>
-
             <div id="logs-container" class="content-area terminal-font">
                 <div class="log-entry system">
                     <span class="time">[INIT]</span> CHIMERA Core Systems Loaded...
@@ -56,9 +53,8 @@
                 </div>
             </div>
         </section>
-
     </div>
-
     <script src="js/app.js"></script>
 </body>
+
 </html>

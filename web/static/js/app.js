@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- WEBSOCKET BAĞLANTISI ---
     // Go sunucusu 8080'de çalışacak
     let socket;
-    
+
     function connect() {
         socket = new WebSocket("ws://localhost:8080/ws");
 
@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- MESAJ İŞLEME MANTIĞI ---
     function handleServerMessage(data) {
         // Data Tipleri: 'response' (Bot cevabı), 'thought' (Düşünce), 'tool' (Araç kullanımı), 'log' (Sistem)
-        
+
         switch (data.type) {
             case 'response':
                 addMessage(data.content, 'bot');
@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function sendMessage() {
         const text = userInput.value.trim();
         if (!text) return;
-        
+
         if (!socket || socket.readyState !== WebSocket.OPEN) {
             addLog("ERROR", "Sistem çevrimdışı. Mesaj gönderilemedi.", "error");
             return;
@@ -97,14 +97,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function addMessage(text, sender) {
         const msgDiv = document.createElement('div');
         msgDiv.classList.add('message', sender);
-        
+
         const icon = sender === 'bot' ? '<i class="fa-solid fa-robot"></i>' : '<i class="fa-solid fa-user"></i>';
-        
+
         msgDiv.innerHTML = `
             <div class="avatar">${icon}</div>
             <div class="text">${formatText(text)}</div>
         `;
-        
+
         chatHistory.appendChild(msgDiv);
         scrollToBottom(chatHistory);
     }
@@ -112,14 +112,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function addLog(label, text, type) {
         const logDiv = document.createElement('div');
         logDiv.classList.add('log-entry', type);
-        
+
         const time = new Date().toLocaleTimeString('tr-TR', { hour12: false });
-        
+
         logDiv.innerHTML = `
             <span class="time">[${time}]</span>
             <strong>${label}:</strong> ${text}
         `;
-        
+
         logsContainer.appendChild(logDiv);
         scrollToBottom(logsContainer);
     }
@@ -139,11 +139,52 @@ document.addEventListener('DOMContentLoaded', () => {
     userInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') sendMessage();
     });
-    
+
     clearLogsBtn.addEventListener('click', () => {
         logsContainer.innerHTML = '';
         addLog("SYSTEM", "Logs cleared manually.", "system");
     });
+
+    // --- SPLITTER / RESIZER (sadeleştirilmiş - Pointer Events) ---
+    const resizer = document.getElementById('dragger');
+    const leftPanel = document.querySelector('.chat-panel');
+    const rightPanel = document.querySelector('.logs-panel');
+    const container = document.querySelector('.app-container');
+
+    if (resizer && leftPanel && rightPanel && container) {
+        let dragging = false;
+
+        const onPointerMove = (e) => {
+            if (!dragging) return;
+            const rect = container.getBoundingClientRect();
+            const x = e.clientX;
+            const min = 200;
+            const max = rect.width - 200;
+            let newLeft = Math.max(min, Math.min(max, x - rect.left));
+            const percent = (newLeft / rect.width) * 100;
+            leftPanel.style.width = percent + '%';
+            rightPanel.style.width = (100 - percent) + '%';
+        };
+
+        resizer.addEventListener('pointerdown', (e) => {
+            dragging = true;
+            resizer.setPointerCapture(e.pointerId);
+            document.body.classList.add('dragging');
+        });
+
+        document.addEventListener('pointermove', onPointerMove);
+
+        document.addEventListener('pointerup', (e) => {
+            dragging = false;
+            try { resizer.releasePointerCapture(e.pointerId); } catch (err) { }
+            document.body.classList.remove('dragging');
+        });
+
+        resizer.addEventListener('dblclick', () => {
+            leftPanel.style.width = '55%';
+            rightPanel.style.width = '45%';
+        });
+    }
 
     // Başlat
     connect();

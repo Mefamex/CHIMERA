@@ -2,15 +2,21 @@
     --bg-dark: #121212;
     --bg-panel: #1e1e1e;
     --border-color: #333;
-    --accent-primary: #00d2ff; /* Neon Mavi */
-    --accent-secondary: #00ff9d; /* Neon Yeşil */
+    --accent-primary: #00d2ff;
+    /* Neon Mavi */
+    --accent-secondary: #00ff9d;
+    /* Neon Yeşil */
     --text-main: #e0e0e0;
     --text-dim: #888;
     --font-ui: 'Inter', sans-serif;
     --font-code: 'Fira Code', monospace;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
 
 body {
     background-color: var(--bg-dark);
@@ -33,8 +39,37 @@ body {
     border-right: 1px solid var(--border-color);
 }
 
-.chat-panel { width: 55%; }
-.logs-panel { width: 45%; background-color: #161616; }
+.chat-panel {
+    width: 55%;
+    min-width: 220px;
+}
+
+.logs-panel {
+    width: 45%;
+    min-width: 220px;
+    background-color: #161616;
+}
+
+/* Resizer (sürükleyici) */
+.resizer {
+    width: 8px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.02), transparent);
+    cursor: col-resize;
+    transition: background 0.15s ease;
+}
+
+.resizer:hover {
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.04), transparent);
+}
+
+body.dragging {
+    user-select: none;
+    cursor: col-resize;
+}
+
+.resizer.active {
+    background: rgba(255, 255, 255, 0.03);
+}
 
 header {
     height: 60px;
@@ -53,7 +88,14 @@ header {
     align-items: center;
     gap: 10px;
 }
-.version { font-size: 0.7em; color: var(--text-dim); background: #333; padding: 2px 6px; border-radius: 4px; }
+
+.version {
+    font-size: 0.7em;
+    color: var(--text-dim);
+    background: #333;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
 
 .content-area {
     flex: 1;
@@ -81,8 +123,15 @@ header {
     font-size: 0.9em;
 }
 
-.message.bot .avatar { color: var(--accent-secondary); border: 1px solid var(--accent-secondary); }
-.message.user .avatar { background: var(--accent-primary); color: #000; }
+.message.bot .avatar {
+    color: var(--accent-secondary);
+    border: 1px solid var(--accent-secondary);
+}
+
+.message.user .avatar {
+    background: var(--accent-primary);
+    color: #000;
+}
 
 .message .text {
     background: #2a2a2a;
@@ -92,8 +141,16 @@ header {
     font-size: 0.95em;
     max-width: 85%;
 }
-.message.user { flex-direction: row-reverse; }
-.message.user .text { border-radius: 10px 0 10px 10px; background: #2b3a42; border: 1px solid #005f73; }
+
+.message.user {
+    flex-direction: row-reverse;
+}
+
+.message.user .text {
+    border-radius: 10px 0 10px 10px;
+    background: #2b3a42;
+    border: 1px solid #005f73;
+}
 
 .input-area {
     padding: 20px;
@@ -114,7 +171,10 @@ input {
     outline: none;
     transition: border 0.2s;
 }
-input:focus { border-color: var(--accent-primary); }
+
+input:focus {
+    border-color: var(--accent-primary);
+}
 
 button {
     background: var(--accent-primary);
@@ -126,10 +186,16 @@ button {
     font-weight: bold;
     transition: opacity 0.2s;
 }
-button:hover { opacity: 0.8; }
+
+button:hover {
+    opacity: 0.8;
+}
 
 /* --- LOG STİLLERİ (Terminal Havası) --- */
-.terminal-font { font-family: var(--font-code); font-size: 0.85em; }
+.terminal-font {
+    font-family: var(--font-code);
+    font-size: 0.85em;
+}
 
 .log-entry {
     margin-bottom: 6px;
@@ -137,24 +203,87 @@ button:hover { opacity: 0.8; }
     border-left: 2px solid transparent;
     word-wrap: break-word;
 }
-.log-entry .time { color: #555; margin-right: 8px; font-size: 0.9em; }
+
+.log-entry .time {
+    color: #555;
+    margin-right: 8px;
+    font-size: 0.9em;
+}
 
 /* Log Tipleri için Renkler */
-.log-entry.system { border-color: #555; color: #888; }
-.log-entry.thought { border-color: #e6c02a; color: #ddd; background: rgba(230, 192, 42, 0.05); } /* Sarı */
-.log-entry.tool { border-color: var(--accent-primary); color: #a4dfff; } /* Mavi */
-.log-entry.error { border-color: #ff4757; color: #ff6b81; } /* Kırmızı */
+.log-entry.system {
+    border-color: #555;
+    color: #888;
+}
+
+.log-entry.thought {
+    border-color: #e6c02a;
+    color: #ddd;
+    background: rgba(230, 192, 42, 0.05);
+}
+
+/* Sarı */
+.log-entry.tool {
+    border-color: var(--accent-primary);
+    color: #a4dfff;
+}
+
+/* Mavi */
+.log-entry.error {
+    border-color: #ff4757;
+    color: #ff6b81;
+}
+
+/* Kırmızı */
 
 /* Status Indicator */
-.indicator { width: 10px; height: 10px; border-radius: 50%; background: #555; margin-left: 8px; }
-.status.online .indicator { background: var(--accent-secondary); box-shadow: 0 0 10px var(--accent-secondary); }
-.status.online span { color: var(--accent-secondary); }
-.status.offline span { color: #555; }
+.indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #555;
+    margin-left: 8px;
+}
 
-@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+.status.online .indicator {
+    background: var(--accent-secondary);
+    box-shadow: 0 0 10px var(--accent-secondary);
+}
+
+.status.online span {
+    color: var(--accent-secondary);
+}
+
+.status.offline span {
+    color: #555;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: #121212; }
-::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #555; }
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #121212;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
