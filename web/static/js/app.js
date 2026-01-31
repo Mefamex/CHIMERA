@@ -1,100 +1,84 @@
-document.addEventListener('DOMContentLoaded', () => {
-    // --- ELEMENT SEÇİMLERİ ---
-    const chatHistory = document.getElementById('chat-history');
-    const logsContainer = document.getElementById('logs-container');
-    const userInput = document.getElementById('user-input');
-    const sendBtn = document.getElementById('send-btn');
-    const statusText = document.getElementById('connection-status');
-    const statusDiv = document.querySelector('.status');
-    const clearLogsBtn = document.getElementById('clear-logs');
+class WebSocketClient {
+    constructor(url) {
+        this.url = url;
+        this.socket = null;
+        this.E_userInput = document.getElementById('user-input');
+        this.E_statusText = document.getElementById('connection-status');
+        this.E_statusDiv = document.querySelector('.status');
+        this.chatHistory = document.getElementById('chat-history');
+        this.logsContainer = document.getElementById('logs-container');
 
-    // --- WEBSOCKET BAĞLANTISI ---
-    // Go sunucusu 8080'de çalışacak
-    let socket;
+        this.LogType = {
+            THOUGHT: 'thought',
+            TOOL: 'tool',
+            ERROR: 'error',
+            SYSTEM: 'system',
+            DEFAULT: 'default',
+        };
+    }
 
-    function connect() {
-        socket = new WebSocket("ws://localhost:8080/ws");
+    scrollToBottom(element) {
+        element.scrollTop = element.scrollHeight;
+    }
+    formatText(text) {
+        return text.replace(/\n/g, '<br>');
+    }
 
-        socket.onopen = () => {
+    Connect() {
+        this.socket = new WebSocket(this.url);
+
+        this.socket.onopen = () => {
             console.log("Bağlantı Kuruldu");
-            statusText.innerText = "SYSTEM ONLINE";
-            statusDiv.classList.add('online');
-            statusDiv.classList.remove('offline');
-            addLog("SYSTEM", "Uplink established with CHIMERA Core.", "system");
+            this.E_statusText.innerText = "SYSTEM ONLINE";
+            this.E_statusDiv.classList.add('online');
+            this.E_statusDiv.classList.remove('offline');
+            this.addLog("WEB", "Uplink established with CHIMERA Core.", this.LogType.TOOL);
         };
 
-        socket.onclose = () => {
+        this.socket.onclose = () => {
             console.log("Bağlantı Koptu");
-            statusText.innerText = "OFFLINE";
-            statusDiv.classList.remove('online');
-            statusDiv.classList.add('offline');
-            addLog("SYSTEM", "Connection lost. Retrying in 5s...", "error");
-            setTimeout(connect, 5000); // 5 saniye sonra tekrar dene
+            this.E_statusText.innerText = "OFFLINE";
+            this.E_statusDiv.classList.remove('online');
+            this.E_statusDiv.classList.add('offline');
+            this.addLog("SYSTEM", "Connection lost. Retrying in 5s...", "error");
+            setTimeout(() => this.Connect(), 5000); // 5 saniye sonra tekrar dene
         };
 
-        socket.onerror = (err) => {
+        this.socket.onerror = (err) => {
             console.error("Socket Hatası:", err);
         };
 
-        socket.onmessage = (event) => {
+        this.socket.onmessage = (event) => {
             try {
-                const data = JSON.parse(event.data);
-                handleServerMessage(data);
+                this.handleServerMessage(JSON.parse(event.data));
             } catch (e) {
                 console.error("JSON Parse Hatası:", e);
             }
         };
+
+        return true;
     }
 
-    // --- MESAJ İŞLEME MANTIĞI ---
-    function handleServerMessage(data) {
-        // Data Tipleri: 'response' (Bot cevabı), 'thought' (Düşünce), 'tool' (Araç kullanımı), 'log' (Sistem)
+    sendMessage() {
+        const text = this.E_userInput.value.trim();
 
-        switch (data.type) {
-            case 'response':
-                addMessage(data.content, 'bot');
-                break;
-            case 'thought':
-                addLog("THOUGHT", data.content, "thought");
-                break;
-            case 'tool':
-                addLog(`TOOL: ${data.tool_name}`, data.content, "tool");
-                break;
-            case 'error':
-                addLog("ERROR", data.content, "error");
-                break;
-            case 'system':
-                addLog("SYSTEM", data.content, "system");
-                break;
-            default:
-                console.log("Bilinmeyen mesaj tipi:", data);
-        }
-    }
+        if (!text) { this.addLog("USER INPUT", "Empty input provided.", this.LogType.ERROR); return; }
 
-    // --- UI FONKSİYONLARI ---
-    function sendMessage() {
-        const text = userInput.value.trim();
-        if (!text) return;
-
-        if (!socket || socket.readyState !== WebSocket.OPEN) {
-            addLog("ERROR", "Sistem çevrimdışı. Mesaj gönderilemedi.", "error");
+        if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+            this.addLog("ERROR", "Sistem çevrimdışı. Mesaj gönderilemedi.", this.LogType.ERROR);
             return;
         }
-
-        // 1. Ekrana ekle
-        addMessage(text, 'user');
+        this.addMessage(text, 'user');
 
         // 2. Sunucuya gönder (JSON formatında)
-        socket.send(JSON.stringify({
+        this.socket.send(JSON.stringify({
             type: "user_message",
             content: text
         }));
-
-        // 3. Inputu temizle
-        userInput.value = '';
+        this.E_userInput.value = '';
     }
 
-    function addMessage(text, sender) {
+    addMessage(text, sender) {
         const msgDiv = document.createElement('div');
         msgDiv.classList.add('message', sender);
 
@@ -102,16 +86,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         msgDiv.innerHTML = `
             <div class="avatar">${icon}</div>
-            <div class="text">${formatText(text)}</div>
+            <div class="text">${this.formatText(text)}</div>
         `;
 
-        chatHistory.appendChild(msgDiv);
-        scrollToBottom(chatHistory);
+        this.chatHistory.appendChild(msgDiv);
+        this.scrollToBottom(this.chatHistory);
     }
 
-    function addLog(label, text, type) {
+    addLog(label, text, type) {
+        // type : this.logType : 'thought', 'tool', 'error', 'system'
+
         const logDiv = document.createElement('div');
-        logDiv.classList.add('log-entry', type);
+        const safeType = Object.values(this.LogType).includes(type) ? type : 'default';
+        logDiv.classList.add('log-entry', safeType);
 
         const time = new Date().toLocaleTimeString('tr-TR', { hour12: false });
 
@@ -120,32 +107,62 @@ document.addEventListener('DOMContentLoaded', () => {
             <strong>${label}:</strong> ${text}
         `;
 
-        logsContainer.appendChild(logDiv);
-        scrollToBottom(logsContainer);
+        this.logsContainer.appendChild(logDiv);
+        this.scrollToBottom(this.logsContainer);
     }
 
-    function scrollToBottom(element) {
-        element.scrollTop = element.scrollHeight;
-    }
+    handleServerMessage(data) {
+        // Data Tipleri: 'response' (Bot cevabı), 'thought' (Düşünce), 'tool' (Araç kullanımı), 'log' (Sistem)
 
-    // Basit Markdown benzeri formatlama (Opsiyonel)
-    function formatText(text) {
-        // Yeni satırları <br> yap
-        return text.replace(/\n/g, '<br>');
+        switch (data.type) {
+            case 'response':
+                this.addMessage(data.content, 'bot');
+                break;
+            case 'thought':
+                this.addLog("THOUGHT", String(data.content).slice(0, 50) + "...", this.LogType.THOUGHT);
+                break;
+            case 'tool':
+                this.addLog(`TOOL: ${data.tool_name}`, data.content, this.LogType.TOOL);
+                break;
+            case 'error':
+                this.addLog("ERROR", data.content, this.LogType.ERROR);
+                break;
+            case 'system':
+                this.addLog("SYSTEM", data.content, this.LogType.SYSTEM);
+                break;
+            default:
+                console.error("Bilinmeyen mesaj tipi:", data);
+        }
     }
+}
 
-    // --- EVENT LISTENERS ---
-    sendBtn.addEventListener('click', sendMessage);
+
+function initEventListeners() {
+    console.info("Initializing event listeners...");
+
+
+    const sendBtn = document.getElementById('send-btn'),
+        userInput = document.getElementById('user-input'),
+        clearLogsBtn = document.getElementById('clear-logs'),
+        logsContainer = document.getElementById('logs-container');
+
+    sendBtn.addEventListener('click', () => { wsClient.sendMessage(); });
     userInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendMessage();
+        if (e.key === 'Enter') wsClient.sendMessage();
     });
 
     clearLogsBtn.addEventListener('click', () => {
         logsContainer.innerHTML = '';
-        addLog("SYSTEM", "Logs cleared manually.", "system");
+        wsClient.addLog("SYSTEM", "Logs cleared manually.", wsClient.LogType.TOOL);
     });
 
-    // --- SPLITTER / RESIZER (sadeleştirilmiş - Pointer Events) ---
+    return true;
+}
+
+
+function initSplitter() {
+
+
     const resizer = document.getElementById('dragger');
     const leftPanel = document.querySelector('.chat-panel');
     const rightPanel = document.querySelector('.logs-panel');
@@ -185,7 +202,23 @@ document.addEventListener('DOMContentLoaded', () => {
             rightPanel.style.width = '45%';
         });
     }
+    return true;
+}
 
-    // Başlat
-    connect();
+
+
+
+const wsClient = new WebSocketClient(`ws://${window.location.host}/ws`);
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (initSplitter()) wsClient.addLog("WEB", "1/3 Splitter initialized.", wsClient.LogType.TOOL);
+    else wsClient.addLog("WEB", "Failed to initialize splitter.", wsClient.LogType.ERROR);
+
+    if (initEventListeners()) wsClient.addLog("WEB", "2/3 Event listeners initialized.", wsClient.LogType.TOOL);
+    else wsClient.addLog("WEB", "Failed to initialize event listeners.", wsClient.LogType.ERROR);
+
+    if (wsClient.Connect()) wsClient.addLog("WEB", "3/3 WebSocket connection initiated.", wsClient.LogType.TOOL);
+    else wsClient.addLog("WEB", "Failed to initiate WebSocket connection.", wsClient.LogType.ERROR);
+
 });
+

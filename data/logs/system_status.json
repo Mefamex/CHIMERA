@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-01-31T23:15:37+03:00",
+  "host_os": "linux/amd64",
+  "go_version": "go1.25.6 X:nodwarf5",
+  "runtimes": [
+    {
+      "type": "node",
+      "path": "runtimes/node-v25.4.0",
+      "version": "v25.4.0",
+      "status": "OK",
+      "message": "Environment Ready"
+    },
+    {
+      "type": "python",
+      "path": "runtimes/python-3.14.2",
+      "version": "3.14.2",
+      "status": "OK",
+      "message": "Environment Ready. Executable: runtimes/python-3.14.2/.venv/bin/python"
+    }
+  ]
+}

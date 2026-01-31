@@ -14,49 +14,50 @@ import (
 func WebSocketHandler(c *websocket.Conn) {
 	// 1. Bağlantı Başarılı Logu
 	log.Println("🔌 Yeni bir istemci bağlandı:", c.RemoteAddr())
+	defer c.Close()
 
 	// Hoşgeldin sinyali gönder
 	sendJSON(c, "system", "Secure Uplink Established.", "")
 
-	var (
-		msg []byte
-		err error
-	)
+	inbound := make(chan models.UserMessage)
+	done := make(chan struct{})
 
-	// 2. Sonsuz Döngü (Dinleme Modu)
+	// Okuma ayrı goroutine'da (bloklamayı izole ediyoruz)
+	go func() {
+		for {
+			_, msg, err := c.ReadMessage()
+			if err != nil {
+				log.Println("Bağlantı koptu (reader):", err)
+				close(done)
+				return
+			}
+
+			var userMsg models.UserMessage
+			if err := json.Unmarshal(msg, &userMsg); err != nil {
+				log.Println("JSON Hatası:", err)
+				continue
+			}
+
+			inbound <- userMsg
+		}
+	}()
+
+	// Ana döngü: gelen mesajları işleme / sunucu tarafından gönderim
 	for {
-		// Mesaj bekle (Bloklayan satır)
-		if _, msg, err = c.ReadMessage(); err != nil {
-			log.Println("Bağlantı koptu:", err)
-			break
+		select {
+		case <-done:
+			return
+		case userMsg := <-inbound:
+			log.Printf("📩 Gelen Mesaj: %s\n", userMsg.Content)
+
+			// --- BURASI GEÇİCİ BEYİN SİMÜLASYONU ---
+			sendJSON(c, "thought", "Kullanıcı girdisi analiz ediliyor: "+userMsg.Content, "")
+			time.Sleep(1 * time.Second)
+
+			response := "Anlaşıldı. Henüz tam beynim (Ollama) bağlı değil ama seni duyabiliyorum Mefamex. \n Mesajın: " + userMsg.Content[:min(len(userMsg.Content), 50)] + "..."
+			sendJSON(c, "response", response, "")
+			// ----------------------------------------
 		}
-
-		// Gelen JSON'ı Parse et
-		var userMsg models.UserMessage
-		if err := json.Unmarshal(msg, &userMsg); err != nil {
-			log.Println("JSON Hatası:", err)
-			continue
-		}
-
-		log.Printf("📩 Gelen Mesaj: %s\n", userMsg.Content)
-
-		// --- BURASI GEÇİCİ BEYİN SİMÜLASYONU ---
-		// Gerçek Agent entegre edilene kadar burası "Rol Yapacak"
-
-		// A. Düşünce Gönder (Frontend sağ panele düşer)
-		sendJSON(c, "thought", "Kullanıcı girdisi analiz ediliyor: "+userMsg.Content, "")
-		time.Sleep(1 * time.Second) // Yapay gecikme (Gerçekçilik için)
-
-		// B. Tool Kullanımı Simülasyonu
-		if len(userMsg.Content) > 5 {
-			sendJSON(c, "tool", "Kelime sayısı kontrol ediliyor...", "word_counter")
-			time.Sleep(500 * time.Millisecond)
-		}
-
-		// C. Cevap Gönder (Frontend sol panele düşer)
-		response := "Anlaşıldı. Henüz tam beynim (Ollama) bağlı değil ama seni duyabiliyorum Mefamex. \n Mesajın: " + userMsg.Content
-		sendJSON(c, "response", response, "")
-		// ----------------------------------------
 	}
 }
 
@@ -67,7 +68,6 @@ func sendJSON(c *websocket.Conn, msgType, content, toolName string) {
 		Content:  content,
 		ToolName: toolName,
 	}
-	// JSON'a çevir ve gönder
 	if err := c.WriteJSON(resp); err != nil {
 		log.Println("Gönderme hatası:", err)
 	}
