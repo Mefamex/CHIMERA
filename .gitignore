@@ -1,0 +1,65 @@
+# ===================================
+# CHIMERA - GLOBAL GITIGNORE
+# ===================================
+
+# --- 1. GİZLİ VE ÖZEL DOSYALAR (Asla Git'e gitmez) ---
+.env
+.env.*
+*.secret
+secrets.yaml
+
+# --- 2. GO (Patron) ---
+# Derlenmiş binary dosyaları
+/bin/
+/dist/
+agent-server
+agent-server.exe
+# Test çıktıları
+*.test
+*.out
+
+# --- 3. PYTHON (Motor Dairesi) ---
+# Sanal ortam klasörleri (Nerede olursa olsun yoksay)
+venv/
+env/
+.venv/
+# Bytecode (Derlenmiş python dosyaları)
+__pycache__/
+*.py[cod]
+# Hata logları
+pip-log.txt
+
+# --- 4. NODE.JS (Motor Dairesi) ---
+# Modül klasörleri (Nerede olursa olsun yoksay)
+node_modules/
+# Hata logları
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+# Build çıktıları (Eğer web arayüzü build alırsan)
+/web/static/dist/
+
+# --- 5. DATA VE LOGLAR (Hafıza) ---
+# Veritabanı dosyaları (Local DB)
+data/db/*.db
+data/db/*.sqlite
+# Log dosyaları
+data/logs/*.log
+# İndirilen dosyalar
+data/downloads/*
+
+# --- 6. EDITOR VE IDE AYARLARI ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# --- 7. ÖZEL DURUM: Runtimes İçi ---
+# Runtimes içindeki klasör yapısını koru ama içindeki şişkinliği at.
+# (Yukarıdaki 'venv/' ve 'node_modules/' kuralları burayı zaten koruyor)
+
+# --- 8. ARCH LINUX / SYSTEM ---
+*.pkg.tar.zst
+core
