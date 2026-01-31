@@ -4,15 +4,11 @@
 
 # --- 1. GİZLİ VE ÖZEL DOSYALAR (Asla Git'e gitmez) ---
 .env
-.env.*
-*.secret
-secrets.yaml
 
 # --- 2. GO (Patron) ---
 # Derlenmiş binary dosyaları
 /bin/
 /dist/
-agent-server
 agent-server.exe
 # Test çıktıları
 *.test
