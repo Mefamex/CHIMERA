@@ -93,7 +93,7 @@ Bu proje **Monorepo** yapısındadır ancak her servis kendi bağımsız krallı
 
 ## 🛠️ Teknoloji Yığını (Tech Stack)
 
-* **Core Logic:** Go (Golang) 1.21+
+* **Core Logic:** Go (Golang) 1.25.6
 * **Web Server:** Go Fiber & Gorilla WebSocket
 * **Data Processing:** Python 3.11+ (FastAPI, Pydantic)
 * **Browser Automation:** Node.js (Express, Puppeteer)

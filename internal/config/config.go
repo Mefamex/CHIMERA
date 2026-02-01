@@ -1,3 +1,4 @@
+// file path: internal/config/config.go
 package config
 
 import (
@@ -9,12 +10,13 @@ import (
 
 // Config yapısı, YAML dosyasındaki hiyerarşinin birebir aynısıdır.
 type Config struct {
-	App      AppConfig      `yaml:"app"`
-	Server   ServerConfig   `yaml:"server"`
-	LLM      LLMConfig      `yaml:"llm"`
-	Services ServicesConfig `yaml:"services"`
-	Telegram TelegramConfig `yaml:"telegram"`
-	Paths    PathsConfig    `yaml:"paths"`
+	App      AppConfig          `yaml:"app"`
+	Server   ServerConfig       `yaml:"server"`
+	Runtime  RuntimePathsConfig `yaml:"runtime_paths"`
+	LLM      LLMConfig          `yaml:"llm"`
+	Services ServicesConfig     `yaml:"services"`
+	Telegram TelegramConfig     `yaml:"telegram"`
+	Paths    PathsConfig        `yaml:"paths"`
 }
 
 type AppConfig struct {
@@ -52,8 +54,8 @@ type ServiceDetail struct {
 }
 
 type TelegramConfig struct {
-	Enabled      bool   `yaml:"enabled"`
-	Token        string `yaml:"token"`
+	Enabled      bool    `yaml:"enabled"`
+	Token        string  `yaml:"token"`
 	AllowedUsers []int64 `yaml:"allowed_users"`
 }
 
@@ -62,6 +64,12 @@ type PathsConfig struct {
 	Database   string `yaml:"database"`
 	Logs       string `yaml:"logs"`
 	Downloads  string `yaml:"downloads"`
+}
+
+type RuntimePathsConfig struct {
+	Python      string `yaml:"python"`
+	NodeModules string `yaml:"node_modules"`
+	NodeBin     string `yaml:"node_bin"`
 }
 
 // LoadConfig belirtilen yoldan YAML dosyasını okur ve Config struct'ına çevirir.

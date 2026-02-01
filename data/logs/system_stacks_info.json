@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-02-01T02:41:55+03:00",
+  "timestamp": "2026-02-02T02:18:28+03:00",
   "host_os": "linux/amd64",
   "go_version": "go1.25.6 X:nodwarf5",
   "runtimes": [
@@ -8,14 +8,14 @@
       "path": "runtimes/node-v25.4.0",
       "version": "v25.4.0",
       "status": "OK",
-      "message": "Environment Ready"
+      "message": "Ready"
     },
     {
       "type": "python",
       "path": "runtimes/python-3.14.2",
       "version": "3.14.2",
       "status": "OK",
-      "message": "Environment Ready. Executable: runtimes/python-3.14.2/.venv/bin/python"
+      "message": "Ready. Executable: runtimes/python-3.14.2/.venv/bin/python"
     }
   ]
 }

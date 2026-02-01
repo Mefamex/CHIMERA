@@ -1,5 +1,5 @@
 #!/bin/bash
-# path: scripts/build.sh
+# file path: scripts/build.sh
 # start this script on project directory
 # run : sh scripts/build.sh
 

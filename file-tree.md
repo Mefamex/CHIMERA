@@ -16,8 +16,7 @@
 ┣━━ 📂 data
 ┃   ┣━━ 📂 db
 ┃   ┗━━ 📂 logs
-┃       ┣━━ system_stacks_info.json
-┃       ┗━━ system_status.json
+┃       ┗━━ system_stacks_info.json
 ┣━━ 📂 internal
 ┃   ┣━━ 📂 agent
 ┃   ┣━━ 📂 clients
@@ -26,6 +25,7 @@
 ┃   ┣━━ 📂 models
 ┃   ┃   ┗━━ types.go
 ┃   ┗━━ 📂 server
+┃       ┣━━ hub.go
 ┃       ┗━━ websocket.go
 ┣━━ 📂 runtimes
 ┃   ┣━━ 📂 node-v25.4.0
@@ -41,6 +41,9 @@
 ┣━━ 📂 tools
 ┗━━ 📂 web
     ┗━━ 📂 static
+        ┣━━ favicon.png
+        ┣━━ favicon1.png
+        ┣━━ favicon2.png
         ┣━━ index.html
         ┣━━ 📂 css
         ┃   ┗━━ style.css

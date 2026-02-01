@@ -41,12 +41,12 @@ type RuntimeInfo struct {
 
 // --- Renk Kodları (Terminal Şıklığı İçin) ---
 const (
-	colorReset  = "\033[0m"
-	colorGreen  = "\033[32m"
-	colorRed    = "\033[31m"
+	colorReset = "\033[0m"
+	colorGreen = "\033[32m"
+	colorRed   = "\033[31m"
 	//colorYellow = "\033[33m"
 	//colorBlue   = "\033[34m"
-	colorCyan   = "\033[36m"
+	colorCyan = "\033[36m"
 )
 
 // --- Ana Fonksiyon ---
@@ -162,7 +162,7 @@ func checkPythonRuntime(basePath string) RuntimeInfo {
 	}
 
 	info.Status = "OK"
-	info.Message = "Environment Ready. Executable: " + pythonBin
+	info.Message = "Ready. Executable: " + pythonBin
 
 	// check python version and folder name is same
 	exceptedName := "python-" + info.Version
@@ -194,7 +194,7 @@ func checkNodeRuntime(basePath string) RuntimeInfo {
 		info.Message = "node_modules eksik (pnpm install gerekli olabilir)."
 	} else {
 		info.Status = "OK"
-		info.Message = "Environment Ready"
+		info.Message = "Ready"
 	}
 
 	// 2. Sistem Node Versiyonunu Al (Referans için)

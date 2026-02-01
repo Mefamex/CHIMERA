@@ -1,3 +1,4 @@
+# file path: scripts/generate_tree.py
 """scripts/generate_tree.py
 Generate a plain ASCII tree into `file-tree.md`.
 Rules implemented:

@@ -1,3 +1,4 @@
+// file path: internal/server/websocket.go
 package server
 
 import (
@@ -12,12 +13,32 @@ import (
 
 // WebSocketHandler: İstemci bağlandığında çalışacak fonksiyon
 func WebSocketHandler(c *websocket.Conn) {
-	// 1. Bağlantı Başarılı Logu
+	// Bağlantı
 	log.Println("🔌 Yeni bir istemci bağlandı:", c.RemoteAddr())
-	defer c.Close()
+	defer c.Close() // Bağlantı kapandığında temizleme
 
-	// Hoşgeldin sinyali gönder
-	sendJSON(c, "system", "Secure Uplink Established.", "")
+	// Client oluştur ve Hub'e kaydet
+	clientID := c.RemoteAddr().String()
+	client := &Client{ID: clientID, Send: make(chan models.Envelope, 16)}
+	HubInstance.Register <- client
+	defer func() { HubInstance.Unregister <- client }()
+
+	// Writer: yalnızca bu goroutine WriteJSON çağırır
+	go func() {
+		for env := range client.Send {
+			if err := c.WriteJSON(env); err != nil {
+				log.Println("Hub'dan client'a gönderim hatası: ", err)
+				return
+			}
+		}
+	}()
+
+	// Hoşgeldin mesajı (hedefli)
+	HubInstance.SendToClient(clientID, models.Envelope{
+		TargetID:  clientID,
+		Payload:   models.AgentResponse{Type: models.AgentTypeSystem, Content: "Secure Uplink Established."},
+		Timestamp: time.Now(),
+	})
 
 	inbound := make(chan models.UserMessage)
 	done := make(chan struct{})
@@ -31,13 +52,11 @@ func WebSocketHandler(c *websocket.Conn) {
 				close(done)
 				return
 			}
-
 			var userMsg models.UserMessage
 			if err := json.Unmarshal(msg, &userMsg); err != nil {
 				log.Println("JSON Hatası:", err)
 				continue
 			}
-
 			inbound <- userMsg
 		}
 	}()
@@ -50,25 +69,29 @@ func WebSocketHandler(c *websocket.Conn) {
 		case userMsg := <-inbound:
 			log.Printf("📩 Gelen Mesaj: %s\n", userMsg.Content)
 
-			// --- BURASI GEÇİCİ BEYİN SİMÜLASYONU ---
-			sendJSON(c, "thought", "Kullanıcı girdisi analiz ediliyor: "+userMsg.Content, "")
+			// düşünce -> hedefli gönder
+			HubInstance.SendToClient(clientID, models.Envelope{
+				TargetID:  clientID,
+				Payload:   models.AgentResponse{Type: models.AgentTypeThought, Content: "Kullanıcı girdisi analiz ediliyor: " + userMsg.Content},
+				Timestamp: time.Now(),
+			})
 			time.Sleep(1 * time.Second)
 
-			response := "Anlaşıldı. Henüz tam beynim (Ollama) bağlı değil ama seni duyabiliyorum Mefamex. \n Mesajın: " + userMsg.Content[:min(len(userMsg.Content), 50)] + "..."
-			sendJSON(c, "response", response, "")
-			// ----------------------------------------
+			// cevap -> hedefli gönder
+			response := "Client is here! Henüz beynim yok ama seni duyabiliyorum. \n Mesajın: " + userMsg.Content[:min(len(userMsg.Content), 50)] + "..."
+			HubInstance.SendToClient(clientID, models.Envelope{
+				TargetID:  clientID,
+				Payload:   models.AgentResponse{Type: models.AgentTypeResponse, Content: response},
+				Timestamp: time.Now(),
+			})
 		}
 	}
 }
 
-// Yardımcı Fonksiyon: JSON göndermeyi kolaylaştırır
-func sendJSON(c *websocket.Conn, msgType, content, toolName string) {
-	resp := models.AgentResponse{
-		Type:     msgType,
-		Content:  content,
-		ToolName: toolName,
-	}
-	if err := c.WriteJSON(resp); err != nil {
-		log.Println("Gönderme hatası:", err)
-	}
+
+func min(a, b int) int {
+    if a < b {
+        return a
+    }
+    return b
 }
