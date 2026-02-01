@@ -2,21 +2,18 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/websocket/v2"
 
+	"CHIMERA/internal/agent"
 	"CHIMERA/internal/config"
-	"CHIMERA/internal/models"
 	"CHIMERA/internal/server"
 	"CHIMERA/scripts"
 )
@@ -31,6 +28,11 @@ func main() {
 	// Bilgi Yazdır
 	fmt.Println("🚀 CHIMERA AGENT BAŞLATILIYOR...")
 	fmt.Printf("✅ Konfigürasyon: %s (v%s) | Port: %d\n", cfg.App.Name, cfg.App.Version, cfg.Server.Port)
+
+	brain, err := agent.NewBrain(cfg)
+	if err != nil {
+		log.Fatalf("❌ Kritik Hata: Brain başlatılamadı! \n%v", err)
+	}
 
 	// Fiber Uygulamasını Oluştur
 	app := fiber.New(fiber.Config{
@@ -51,7 +53,7 @@ func main() {
 		}
 		return fiber.ErrUpgradeRequired
 	})
-	app.Get("/ws", websocket.New(server.WebSocketHandler))
+	app.Get("/ws", websocket.New(server.NewWebSocketHandler(brain)))
 	fmt.Println("✅ WebSocket Yolu Ayarlandı.")
 
 	// API Yolları
@@ -64,15 +66,8 @@ func main() {
 	})
 	fmt.Println("✅ API Yolları Ayarlandı.")
 
-	// Context ile iptal yönetimi (randomNotifications durdurmak için)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	// Hub'i çalıştır
 	go server.HubInstance.Run()
-
-	// Rasgele bildirim göndericiyi başlat (kontrollü, ctx ile durdurulabilir)
-	go randomNotifications(ctx)
 
 	// 6. Sunucuyu Başlat
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
@@ -92,22 +87,19 @@ func main() {
 	select {
 	case sig := <-sigCh:
 		fmt.Println("\n\nAlındı:", sig, "- sunucu kapatılıyor...")
-		// rastgele bildirim goroutine'ini durdur
-		cancel()
 		// hub'i kapat
 		server.HubInstance.Shutdown()
 		if err := app.Shutdown(); err != nil {
 			log.Printf("Shutdown hatası: %v", err)
 		}
 	case err := <-errCh:
-		// sunucu hatası durumunda önce temizleme
-		cancel()
 		server.HubInstance.Shutdown()
 		log.Fatalf("\n\nSunucu hatası: %v", err)
 	}
 }
 
 // rasgele zamanlarda tüm bağlılara bildirim gönderici (ctx ile durdurulabilir)
+/*
 func randomNotifications(ctx context.Context) {
 	rand.Seed(time.Now().UnixNano())
 	for {
@@ -133,3 +125,4 @@ func randomNotifications(ctx context.Context) {
 		}
 	}
 }
+*/

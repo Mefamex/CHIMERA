@@ -11,7 +11,7 @@ app:
 
 server:
   host: "localhost"
-  port: 8080
+  port: 8787
   read_timeout: 15s
   write_timeout: 15s
 
@@ -23,18 +23,17 @@ runtime_paths:
 llm:
   provider: "ollama"
   host: "http://localhost:11434"
-  model_main: "qwen2.5:7b"
-  model_coder: "qwen2.5:14b"
+  model_main: "qwen2.5-coder:7b"
+  model_coder: "qwen2.5-coder:7b"
   temperature: 0.7
   context_window: 8192
   format: "json"
-
 
 # services:
 #   python_analyzer:
 #     url: "http://localhost:8000"
 #     timeout: 30s
-# 
+#
 #   node_browser:
 #     url: "http://localhost:3001"
 #     timeout: 45s
