@@ -1,56 +1,223 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CHIMERA | AI Agent Assistant</title>
-    <link rel="icon" type="image/png" href="favicon.png" />
-    <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <link rel="stylesheet" href="./third_party/bootstrap.min.css" />
+    <script src="./third_party/bootstrap.bundle.min.js" defer></script>
+    <script src="./app.js" defer> </script>
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            background: #070707;
+            color: #e6e6e6;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .chat-panel {
+            flex: 1;
+            min-width: 260px;
+            min-height: 0;
+        }
+
+        .logs-panel {
+            width: 360px;
+            background: #0e0e0e;
+            min-height: 0;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid #151515;
+        }
+
+        .content-area {
+            padding: 1rem;
+            overflow: auto;
+        }
+
+        .chat-panel .content-area,
+        .logs-panel .content-area {
+            flex: 1 1 0;
+            min-height: 0;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0.6rem;
+            border-top: 1px solid #151515;
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #121212;
+        }
+
+        .resizer {
+            width: 0.2rem;
+            cursor: col-resize;
+            background-color: rgb(117, 117, 117);
+        }
+
+        .content-area {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.10) transparent;
+        }
+
+        .content-area::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        .content-area::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        /* Code block and inline code styles */
+        pre {
+            background: #0b0b0b;
+            padding: .6rem;
+            border-radius: 6px;
+            overflow: auto;
+        }
+
+        pre code {
+            display: block;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;
+            color: #e6e6e6;
+            font-size: .85rem;
+        }
+
+        code.inline-code {
+            background: rgba(255, 255, 255, 0.03);
+            padding: .08rem .28rem;
+            border-radius: 4px;
+            font-family: ui-monospace, monospace;
+        }
+
+        a {
+            color: #7dd3fc;
+            text-decoration: underline;
+        }
+
+        .content-area::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.06);
+            border-radius: 999px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+
+        .content-area::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .logs-panel .content-area::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .logs-panel .log-entry {
+            padding: 0.35rem 0.25rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.24);
+            color: #e6e6e6;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Helvetica Neue", monospace;
+        }
+
+        .logs-panel .log-entry .time {
+            color: #9aa0a6;
+            margin-right: .35rem;
+        }
+
+        .logs-panel .log-entry.system {
+            color: #9aa0a6;
+        }
+
+        .logs-panel .log-entry.tool {
+            color: #7dd3fc;
+        }
+
+        .logs-panel .log-entry.thought {
+            color: #fbbf24;
+        }
+
+        .logs-panel .log-entry.error {
+            color: #ff6b6b;
+            font-weight: 600;
+        }
+
+        .logs-panel .log-entry.default {
+            color: #e6e6e6;
+        }
+    </style>
 </head>
 
 <body>
-    <div class="app-container">
-        <section class="panel chat-panel">
-            <header>
-                <div class="brand">
-                    <i class="fa-solid fa-dragon"></i> CHIMERA <span class="version">v0.1.0</span>
+    <div class="container-fluid p-0">
+        <div class="row g-0 vh-100">
+            <main class="col chat-panel d-flex flex-column">
+                <header class="d-flex align-items-center justify-content-between bg-transparent">
+                    <div class="brand d-flex align-items-center">
+                        <span class="me-2">🐉</span>
+                        <strong>CHIMERA</strong>
+                        <span class="badge bg-secondary ms-2">v0.1.0</span>
+                    </div>
+                    <div class="status d-flex align-items-center gap-2">
+                        <span id="connection-status" class="badge bg-dark text-secondary">OFFLINE</span>
+                    </div>
+                </header>
+                <div id="chat-history" class="content-area flex-grow-1 overflow-auto">
+                    <div class="d-flex align-items-start mb-3">
+                        <div class="avatar me-2">🤖</div>
+                        <div class="text small text-wrap bg-dark p-2 rounded">
+                            <span class="copy-prefix text-muted">CHIMERA-AI :</span>
+                            <span class="copy-content">Sayfa yüklendi.</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="status">
-                    <div class="indicator"></div>
-                    <span id="connection-status" class="offline">OFFLINE</span>
+                <div class="input-area">
+                    <div class="input-group">
+                        <textarea id="user-input" rows="1" class="form-control bg-dark text-light border-secondary" placeholder="Bir görev girin... (Örn: Qwen 14b ile kod analizi yap)"
+                            autocomplete="off" style="resize:none; max-height:10em; overflow:auto;"></textarea>
+                        <button id="send-btn" class="btn btn-primary" type="button">➤</button>
+                    </div>
                 </div>
-            </header>
-            <div id="chat-history" class="content-area">
-                <div class="message bot">
-                    <div class="avatar"><i class="fa-solid fa-robot"></i></div>
-                    <div class="text">Sayfa yüklendi.</div>
-                </div>
+            </main>
+            <div class="col-auto d-flex">
+                <div id="dragger" class="resizer h-100" role="separator" aria-orientation="vertical" title="Sürükleyerek genişlik ayarla"></div>
             </div>
-            <div class="input-area">
-                <input type="text" id="user-input" placeholder="Bir görev girin... (Örn: Qwen 14b ile kod analizi yap)" autocomplete="off">
-                <button id="send-btn"><i class="fa-solid fa-paper-plane"></i></button>
-            </div>
-        </section>
-        <div class="resizer" id="dragger" role="separator" aria-orientation="vertical" title="Sürükleyerek genişlik ayarla"></div>
-        <section class="panel logs-panel">
-            <header>
-                <div class="brand">
-                    <i class="fa-solid fa-microchip"></i> SYSTEM LOGS & THOUGHTS
+            <aside class="col-auto logs-panel d-flex flex-column border-start">
+                <header class="d-flex align-items-center justify-content-between px-3 py-2">
+                    <div class="brand d-flex align-items-center">
+                        <span class="me-2">🧠</span>
+                        <strong class="small">SYSTEM LOGS</strong>
+                    </div>
+                    <button id="clear-logs" class="btn btn-sm btn-outline-secondary" title="Temizle">🗑️</button>
+                </header>
+                <div id="logs-container" class="content-area terminal-font flex-grow-1 overflow-auto px-3">
+                    <div class="log-entry system small text-muted mb-2">
+                        <span class="time">[INIT]</span> CHIMERA Core Systems Loading...
+                    </div>
                 </div>
-                <button id="clear-logs" class="icon-btn" title="Temizle"><i class="fa-solid fa-trash"></i></button>
-            </header>
-            <div id="logs-container" class="content-area terminal-font">
-                <div class="log-entry system">
-                    <span class="time">[INIT]</span> CHIMERA Core Systems Loading...
-                </div>
-            </div>
-        </section>
+            </aside>
+        </div>
     </div>
-    <script src="js/app.js" defer></script>
-
 </body>
 
 </html>

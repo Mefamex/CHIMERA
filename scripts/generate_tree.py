@@ -1,77 +1,45 @@
-# file path: scripts/generate_tree.py
-"""scripts/generate_tree.py
-Generate a plain ASCII tree into `file-tree.md`.
-Rules implemented:
-- Within each directory, list files first (alphabetical), then subdirectories.
-- After finishing a directory, if its last child is a file, insert a single
-    blank line aligned to the parent's depth (i.e. the prefix used for this
-    directory's entries).
-- Load simple ignore names from `.gitignore` (no globs, only plain names/paths).
-"""
-
+import os, re
 from pathlib import Path
-from rich import print
-from rich.markup import escape
-from rich.text import Text
+from io import StringIO
+import pathspec
 from rich.tree import Tree
 from rich.console import Console
+from rich.markup import escape
 
-# Defaults to ignore
-DEFAULT_IGNORES = {"__pycache__", "venv", "node_modules", "dist", "bin", "obj"}
-
-def load_ignores_from_gitignore(root: Path):
+def get_git_spec(root: Path):
+    """.gitignore dosyasını okur ve pathspec nesnesi döner."""
     gitignore = root / ".gitignore"
-    ignores = set()
-    if not gitignore.exists():
-        return ignores
-    try:
-        for raw in gitignore.read_text(encoding="utf-8").splitlines():
-            line = raw.strip()
-            if not line or line.startswith("#"): continue
-            if line.endswith("/"): line = line[:-1]
-            if any(ch in line for ch in "*?[") or "/" in line or "\\" in line: continue
-            name = Path(line).name
-            if name:  ignores.add(name)
-    except Exception: return set()
-    return ignores
+    patterns = [".git"] # Varsayılan olarak .git'i yoksay
+    if gitignore.exists(): patterns.extend(gitignore.read_text().splitlines())
+    patterns.extend(["!file-tree.md"])
+    return pathspec.PathSpec.from_lines('gitwildmatch', patterns)
 
-IGNORE_NAMES = DEFAULT_IGNORES | load_ignores_from_gitignore(Path("."))
+def build_tree(directory: Path, tree: Tree, spec: pathspec.PathSpec, root_dir: Path):
+    paths = sorted(directory.iterdir(), key=lambda p: (not p.is_file(), p.name.lower()))
 
-def walk_directory(directory: Path, tree: Tree):
-    paths = sorted(
-        directory.iterdir(),
-        key=lambda path: (not path.is_file(), path.name.lower())
-    )
-    
     for path in paths:
-        if path.name.startswith(".") or path.name in IGNORE_NAMES: continue
-            
-        # Dosya/Klasör Görünümü
+        # Gitignore kontrolü (kök dizine göre göreceli yol ile)
+        rel_path = path.relative_to(root_dir).as_posix()
+        if spec.match_file(rel_path): continue
         if path.is_dir():
-            style = "dim" if path.name.startswith("__") else ""
-            branch = tree.add(
-                f"[bold magenta]:open_file_folder: {escape(path.name)}[/bold magenta]",
-                style=style,
-                guide_style=style,
-            )
-            walk_directory(path, branch)
-        else: tree.add(Text(path.name))
+            branch = tree.add(f"[bold magenta]📂 {escape(path.name)}[/bold magenta]")
+            build_tree(path, branch, spec, root_dir)
+        else: tree.add(path.name)
 
-# Kullanım
-root_path = Path(".") # Şu anki dizin
-tree = Tree(
-    f":file_folder: [bold white]{root_path.resolve().name}[/bold white]",
-    guide_style="bold bright_blue",
-)
+# Ana İşlem
+root_path = Path(".").resolve()
+spec = get_git_spec(root_path)
 
-walk_directory(root_path, tree)
-print(tree)
+tree = Tree(f"📁 [bold white]{root_path.name}[/bold white]", guide_style="bold bright_blue")
+build_tree(root_path, tree, spec, root_path)
 
-output_path = root_path / "file-tree.md"
-with output_path.open("w", encoding="utf-8") as f:
-    f.write("```text\n\n")
-    console = Console(file=f, force_terminal=False, color_system=None)
-    console.print(tree)
-    f.write("\n```\n")
+# Çıktıyı MD olarak kaydet
+string_io = StringIO()
+console = Console(file=string_io, width=100, color_system=None)
+console.print(tree)
 
-print(f"\n[bold green]Dosya ağacı '{output_path.absolute()}' dosyasına kaydedildi.[/bold green]")
+# Markdown dosyasına yaz (Regex kısmını sadeleştirdim)
+output_content = "```text\n" + re.sub(r'(?m)^(┣━━ 📂)', lambda m: '┃\n' + m.group(1), string_io.getvalue()) + "```"
+(root_path / "file-tree.md").write_text(output_content, encoding="utf-8")
+
+print(f"Ağaç başarıyla oluşturuldu: file-tree.md")

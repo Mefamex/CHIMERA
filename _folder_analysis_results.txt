@@ -1,0 +1,27 @@
+# Created for : CHIMERA-AI
+# Created on  : 2026-02-02T22:36:56Z
+
+ANALYZING RESULTS
+
+|=======|========|======|
+| TYPE  |  CHAR  | FILE |
+|-------|--------|------|
+|    GO | 36,323 | 15   |
+|  YAML | 24,564 | 3    |
+|    JS | 13,732 | 1    |
+|   TXT |  7,637 | 9    |
+|    PY |  7,486 | 2    |
+|    MD |  6,855 | 3    |
+|  HTML |  4,418 | 1    |
+|   SUM |  3,186 | 1    |
+| NOEXT |  2,098 | 2    |
+|    SH |  1,537 | 2    |
+|   MOD |    709 | 1    |
+|  JSON |    639 | 2    |
+|   PNG |    --- | 1    |
+|=======|========|======|
+
+TOTAL CHARS : 109,184
+TOTAL FILES : 43
+
+                   in CHIMERA-AI

@@ -13,31 +13,34 @@ type UserMessage struct {
 type AgentType string
 
 const (
-    AgentTypeResponse AgentType = "response"
-    AgentTypeThought  AgentType = "thought"
-    AgentTypeTool     AgentType = "tool"
-    AgentTypeSystem   AgentType = "system"
-    AgentTypeError    AgentType = "error"
+	AgentTypeResponse      AgentType = "response"
+	AgentTypeResponseStart AgentType = "response_start"
+	AgentTypeResponseDelta AgentType = "response_delta"
+	AgentTypeResponseEnd   AgentType = "response_end"
+	AgentTypeThought       AgentType = "thought"
+	AgentTypeTool          AgentType = "tool"
+	AgentTypeSystem        AgentType = "system"
+	AgentTypeError         AgentType = "error"
 )
 
 // Frontend'e giden mesaj (Go -> User)
 type AgentResponse struct {
-    Type     AgentType `json:"type"`      // "response", "thought", "tool", "system", "error"
-    Content  string    `json:"content"`   // Mesaj içeriği
-    ToolName string    `json:"tool_name"` // Eğer tool kullandıysa (örn: "browser")
+	Type     AgentType `json:"type"`      // "response", "thought", "tool", "system", "error"
+	Content  string    `json:"content"`   // Mesaj içeriği
+	ToolName string    `json:"tool_name"` // Eğer tool kullandıysa (örn: "browser")
 }
 
 // Envelope : hedefli veya broadcast mesajlar için sarmalayıcı
 type Envelope struct {
-    ID        string        `json:"id,omitempty"`         // opsiyonel mesaj kimliği
-    TargetID  string        `json:"target_id,omitempty"`  // boşsa tüm client'lara (broadcast)
-    Broadcast bool          `json:"broadcast,omitempty"`  // explicit broadcast tercihi
-    Payload   AgentResponse `json:"payload"`              // gerçek gönderilen içerik
-    Timestamp time.Time     `json:"timestamp,omitempty"`  // opsiyonel zaman damgası
+	ID        string        `json:"id,omitempty"`        // opsiyonel mesaj kimliği
+	TargetID  string        `json:"target_id,omitempty"` // boşsa tüm client'lara (broadcast)
+	Broadcast bool          `json:"broadcast,omitempty"` // explicit broadcast tercihi
+	Payload   AgentResponse `json:"payload"`             // gerçek gönderilen içerik
+	Timestamp time.Time     `json:"timestamp,omitempty"` // opsiyonel zaman damgası
 }
 
 // client hakkında meta veri (ileride kullanılabilir)
 type ClientInfo struct {
-    ID   string            `json:"id"`
-    Meta map[string]string `json:"meta,omitempty"`
+	ID   string            `json:"id"`
+	Meta map[string]string `json:"meta,omitempty"`
 }

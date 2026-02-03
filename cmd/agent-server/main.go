@@ -16,6 +16,8 @@ import (
 	"CHIMERA/internal/config"
 	"CHIMERA/internal/server"
 	"CHIMERA/scripts"
+
+	"CHIMERA/cmd"
 )
 
 func main() {
@@ -41,6 +43,16 @@ func main() {
 
 	// Loglama Middleware'i (Terminalde HTTP isteklerini görmek için)
 	app.Use(logger.New())
+
+	// Geliştirme ortamında statik dosya cache'ini kapat (app.js güncellemeleri anında gelsin)
+	if cfg.App.Environment == "development" {
+		app.Use(func(c *fiber.Ctx) error {
+			c.Set("Cache-Control", "no-store")
+			c.Set("Pragma", "no-cache")
+			c.Set("Expires", "0")
+			return c.Next()
+		})
+	}
 
 	// Statik Dosyalar (HTML/CSS/JS)
 	app.Static("/", "./web/static")
@@ -79,6 +91,8 @@ func main() {
 			errCh <- err
 		}
 	}()
+	
+	cmd.TryOllamaConnection()
 
 	// Ctrl+C veya SIGTERM bekle
 	sigCh := make(chan os.Signal, 1)

@@ -23,6 +23,9 @@ pip install requests
 deactivate
 cd ../..
 
+echo "Çekilecek third-party var mı? Şimdi indiriliyor..."
+bash scripts/download_third_party.sh
+
 mkdir -p runtimes/node-v25.4.0
 cd runtimes/node-v25.4.0
 pnpm init

@@ -16,25 +16,14 @@ agent-server.exe
 
 # --- 3. PYTHON (Motor Dairesi) ---
 # Sanal ortam klasörleri (Nerede olursa olsun yoksay)
-venv/
-env/
 .venv/
 # Bytecode (Derlenmiş python dosyaları)
 __pycache__/
 *.py[cod]
-# Hata logları
-pip-log.txt
 
 # --- 4. NODE.JS (Motor Dairesi) ---
 # Modül klasörleri (Nerede olursa olsun yoksay)
 node_modules/
-# Hata logları
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-# Build çıktıları (Eğer web arayüzü build alırsan)
-/web/static/dist/
 
 # --- 5. DATA VE LOGLAR (Hafıza) ---
 # Veritabanı dosyaları (Local DB)
@@ -59,3 +48,8 @@ data/downloads/*
 # --- 8. ARCH LINUX / SYSTEM ---
 *.pkg.tar.zst
 core
+
+# --- 9. THIRD_PARTY / HARICI KABUL ÖNERİSİ ---
+
+**/third_party/*
+!/**/third_party/readme.md

@@ -1,5 +1,5 @@
-// file path: internal/clients/ollama.go
-package clients
+// file path: internal/clients/ollama/chat.go
+package ollama
 
 import (
 	"bytes"
@@ -9,47 +9,15 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 )
 
-type OllamaClient struct {
-	BaseURL    string
-	HTTPClient *http.Client
-}
-
-func NewOllamaClient(baseURL string) *OllamaClient {
-	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
-	return &OllamaClient{
-		BaseURL: baseURL,
-		HTTPClient: &http.Client{
-			Timeout: 90 * time.Second,
-		},
-	}
-}
-
-type OllamaChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-type ollamaChatRequest struct {
-	Model    string              `json:"model"`
-	Messages []OllamaChatMessage `json:"messages"`
-	Stream   bool                `json:"stream"`
-	Format   any                 `json:"format,omitempty"`
-	Options  map[string]any      `json:"options,omitempty"`
-}
-
-type ollamaChatResponse struct {
-	Message struct {
-		Role    string `json:"role"`
-		Content string `json:"content"`
-	} `json:"message"`
-	Done bool `json:"done"`
-}
-
-// Chat sends a non-streaming chat request to Ollama (/api/chat) and returns assistant content.
-func (c *OllamaClient) Chat(ctx context.Context, model string, messages []OllamaChatMessage, format any, options map[string]any) (string, error) {
+func (c *OllamaClient) Chat(
+	ctx context.Context,
+	model string,
+	messages []OllamaChatMessage,
+	format any,
+	options map[string]any,
+) (string, error) {
 	if c == nil {
 		return "", fmt.Errorf("ollama client is nil")
 	}
