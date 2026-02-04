@@ -15,12 +15,6 @@ import (
 // IsOnline
 // Version
 
-func (c *OllamaClient) Ping(ctx context.Context) error {
-	// Sadece bağlantı kurulabiliyor mu diye bakarız
-	_, err := c.IsOnline(ctx)
-	return err
-}
-
 func (c *OllamaClient) IsOnline(ctx context.Context) (bool, error) {
 	const timeoutResponse = 5 * time.Second
 
