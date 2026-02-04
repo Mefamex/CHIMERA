@@ -33,7 +33,7 @@ func InitLogger() *slog.Logger {
 		panic(fmt.Sprintf("Log klasörü oluşturulamadı: %v", err))
 	}
 	now := time.Now()
-	timestamp := now.Format("2006-01-02-15-04-05")
+	timestamp := now.Format("20060102T150405")
 	filename := fmt.Sprintf("chimera-%s.json", timestamp)
 	fullPath := filepath.Join(logDir, filename)
 

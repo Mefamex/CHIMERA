@@ -46,17 +46,23 @@
 ┃   ┃       ┣━━ stream.go
 ┃   ┃       ┗━━ structs.go
 ┃   ┣━━ 📂 common
+┃   ┃   ┗━━ noWayHome.go
 ┃   ┣━━ 📂 core
 ┃   ┃   ┣━━ config.go
 ┃   ┃   ┣━━ init.go
 ┃   ┃   ┗━━ logger.go
 ┃   ┣━━ 📂 models
 ┃   ┃   ┗━━ types.go
-┃   ┗━━ 📂 server
-┃       ┣━━ hub.go
-┃       ┣━━ server.go
-┃       ┣━━ structs.go
-┃       ┗━━ websocket.go
+┃   ┣━━ 📂 server
+┃   ┃   ┣━━ hub.go
+┃   ┃   ┣━━ server.go
+┃   ┃   ┣━━ structs.go
+┃   ┃   ┗━━ websocket.go
+┃   ┗━━ 📂 skills
+┃       ┗━━ 📂 fileSystem
+┃           ┣━━ definitions.json
+┃           ┣━━ read.py
+┃           ┗━━ write.py
 ┃
 ┣━━ 📂 runtimes
 ┃   ┣━━ 📂 node-v25.4.0

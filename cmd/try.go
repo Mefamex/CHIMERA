@@ -16,11 +16,6 @@ func TryOllamaConnection() error {
 		HTTPClient: &http.Client{},
 	}
 
-	// Ping the Ollama server
-	if err := client.Ping(context.Background()); err != nil {
-		return fmt.Errorf("failed to ping Ollama server: %w", err)
-	}
-
 	// Check if the Ollama server is online
 	online, err := client.IsOnline(context.Background())
 	if err != nil {
@@ -38,7 +33,11 @@ func TryOllamaConnection() error {
 	if len(models) == 0 {
 		return fmt.Errorf("no models available on Ollama server")
 	} else {
-		fmt.Printf("Ollama Model Available: %s\n", models)
+		// print beautifully all in the json marshal indent
+		fmt.Println("✅ Ollama server is online. Available models:")
+		for _, model := range models {
+			fmt.Printf(" - %s\n", model.ID)
+		}
 	}
 	return nil
 }
