@@ -4,11 +4,10 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"strconv"
 	"strings"
 	"time"
 
-	"CHIMERA/internal/agent"
+	"CHIMERA/internal/agent/brain"
 	"CHIMERA/internal/clients/ollama"
 	"CHIMERA/internal/models"
 
@@ -68,8 +67,9 @@ func sendTextResponse(clientID string, msgID string, text string) {
 	})
 }
 
-// NewWebSocketHandler returns a websocket handler wired to a Brain.
-func NewWebSocketHandler(brain *agent.Brain) func(c *websocket.Conn) {
+// NewWebSocketHandler returns a websocket handler wired to a BrainStruct.
+func NewWebSocketHandler() func(c *websocket.Conn) {
+	brain := brain.Brain
 	return func(c *websocket.Conn) {
 		// Bağlantı
 		log.Info("🔌 Yeni bir istemci bağlandı:", "component", "WEBSOCKET", "remote_addr", c.RemoteAddr())
@@ -91,23 +91,17 @@ func NewWebSocketHandler(brain *agent.Brain) func(c *websocket.Conn) {
 			}
 		}()
 
-		// Hoşgeldin mesajı (hedefli) (istemci hakkında kısaca yazdır)
+		// Hoşgeldin mesajı (hedefli)
 		HubInstance.SendToClient(clientID, models.Envelope{
 			TargetID:  clientID,
-			Payload:   models.AgentResponse{Type: models.AgentTypeResponse, Content: "Secure Uplink Established to " + clientID +"\n System ready for commands."},
+			Payload:   models.AgentResponse{Type: models.AgentTypeResponse, Content: "Secure Uplink Established to " + clientID},
 			Timestamp: time.Now(),
 		})
 
 		// Per-connection conversation history: this is why the model can remember earlier messages.
 		conversation := []ollama.OllamaChatMessage(nil)
-		if brain != nil {
-			conversation = brain.NewConversation()
-		}
+		conversation = brain.NewConversation()
 		conversation = trimConversation(conversation)
-
-		// Per-connection state for simple deterministic behaviors.
-		countingMode := false
-		lastMeaningfulUserRequest := ""
 
 		inbound := make(chan models.UserMessage)
 		done := make(chan struct{})
@@ -143,70 +137,9 @@ func NewWebSocketHandler(brain *agent.Brain) func(c *websocket.Conn) {
 				if userText == "" {
 					continue
 				}
-				log.Info("📩 Gelen Mesaj", "component", "WEBSOCKET", "message", userText)
-
-				lower := strings.ToLower(userText)
+				log.Info("📩 Gelen Mesaj", "component", "WEBSOCKET", "message", userText[:50])
 
 				msgID := uuid.NewString()
-
-				// 4b) "en son istediğimi yap" gibi komutlar: önce son isteği hatırlat.
-				if strings.Contains(lower, "en son") && strings.Contains(lower, "yap") {
-					resp := lastMeaningfulUserRequest
-					if strings.TrimSpace(resp) == "" {
-						resp = "En son net bir isteğin yoktu. Ne yapmamı istersin?"
-					} else {
-						resp = "En son isteğin şuydu: \"" + resp + "\". Bunu mu yapayım?"
-					}
-					sendTextResponse(clientID, msgID, resp)
-					conversation = append(conversation,
-						ollama.OllamaChatMessage{Role: "user", Content: userText},
-						ollama.OllamaChatMessage{Role: "assistant", Content: resp},
-					)
-					conversation = trimConversation(conversation)
-					continue
-				}
-
-				// 5) Counting mode: user wants alternating counting.
-				if strings.Contains(lower, "say") && (strings.Contains(lower, "beraber") || strings.Contains(lower, "karşı") || strings.Contains(lower, "sayal") || strings.Contains(lower, "sayıc") || strings.Contains(lower, "sayac")) {
-					countingMode = true
-					resp := "Tamam. Sen 1 yaz, ben 2 diyeceğim."
-					sendTextResponse(clientID, msgID, resp)
-					conversation = append(conversation,
-						ollama.OllamaChatMessage{Role: "user", Content: userText},
-						ollama.OllamaChatMessage{Role: "assistant", Content: resp},
-					)
-					conversation = trimConversation(conversation)
-					continue
-				}
-				if countingMode {
-					if lower == "dur" || lower == "stop" {
-						countingMode = false
-						resp := "Tamam, saymayı durdurdum."
-						sendTextResponse(clientID, msgID, resp)
-						conversation = append(conversation,
-							ollama.OllamaChatMessage{Role: "user", Content: userText},
-							ollama.OllamaChatMessage{Role: "assistant", Content: resp},
-						)
-						conversation = trimConversation(conversation)
-						continue
-					}
-					if n, err := strconv.Atoi(lower); err == nil {
-						resp := strconv.Itoa(n + 1)
-						sendTextResponse(clientID, msgID, resp)
-						conversation = append(conversation,
-							ollama.OllamaChatMessage{Role: "user", Content: userText},
-							ollama.OllamaChatMessage{Role: "assistant", Content: resp},
-						)
-						conversation = trimConversation(conversation)
-						continue
-					}
-				}
-
-				// Fallback to LLM.
-				if brain == nil {
-					sendTextResponse(clientID, msgID, "Beyin (LLM) hazır değil.")
-					continue
-				}
 
 				ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
 				full, updatedHistory, err := brain.ChatStreamWithHistory(ctx, conversation, userText, func(delta string) {
@@ -222,6 +155,7 @@ func NewWebSocketHandler(brain *agent.Brain) func(c *websocket.Conn) {
 				})
 				cancel()
 				if err != nil {
+					log.Error("Ollama yanıt hatası", "component", "WEBSOCKET", "error", err)
 					HubInstance.SendToClient(clientID, models.Envelope{
 						ID:        msgID,
 						TargetID:  clientID,
@@ -231,7 +165,7 @@ func NewWebSocketHandler(brain *agent.Brain) func(c *websocket.Conn) {
 					HubInstance.SendToClient(clientID, models.Envelope{
 						ID:        msgID,
 						TargetID:  clientID,
-						Payload:   models.AgentResponse{Type: models.AgentTypeResponseEnd, Content: ""},
+						Payload:   models.AgentResponse{Type: models.AgentTypeResponse, Content: "Ollama hatası: " + err.Error()},
 						Timestamp: time.Now(),
 					})
 					continue

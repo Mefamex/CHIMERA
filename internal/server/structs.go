@@ -4,13 +4,19 @@ package server
 import (
 	"CHIMERA/internal/core"
 	"CHIMERA/internal/models"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
 )
 
-// server globals
-var log = core.Log
-
 // global hub
-var HubInstance = NewHub()
+var HubInstance = NewHub() // Singleton Hub instance for managing all WebSocket clients
+var App *fiber.App
+var StartTime time.Time
+
+// server-package globals
+var log = core.Log
+var config = core.Config
 
 // Client temsilcisi: tek bir websocket bağlantısının gönderim kanalı
 type Client struct {

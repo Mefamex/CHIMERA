@@ -33,8 +33,10 @@
 ┃
 ┣━━ 📂 internal
 ┃   ┣━━ 📂 agent
-┃   ┃   ┣━━ brain.go
-┃   ┃   ┗━━ prompts.go
+┃   ┃   ┣━━ prompts.go
+┃   ┃   ┗━━ 📂 brain
+┃   ┃       ┣━━ brain.go
+┃   ┃       ┗━━ structs.go
 ┃   ┣━━ 📂 clients
 ┃   ┃   ┗━━ 📂 ollama
 ┃   ┃       ┣━━ chat.go
@@ -72,11 +74,6 @@
 ┃   ┣━━ file_analyzer.py
 ┃   ┣━━ generate_tree.py
 ┃   ┗━━ stacks_info.go
-┃
-┣━━ 📂 third_party
-┃   ┗━━ readme.md
-┃
-┣━━ 📂 tools
 ┗━━ 📂 web
     ┗━━ 📂 static
         ┣━━ app.js

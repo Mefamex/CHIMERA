@@ -33,7 +33,6 @@ func (h *Hub) Shutdown() {
 
 // Run: Hub'in ana döngüsü — register/unregister, broadcast ve hedefli gönderimleri işler
 func (h *Hub) Run() {
-	log.Info("started", "component", "HUB")
 	for {
 		select {
 		case <-h.Stop:

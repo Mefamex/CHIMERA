@@ -1,4 +1,5 @@
-package agent
+// file path: internal/agent/brain/brain.go
+package brain
 
 import (
 	"context"
@@ -6,53 +7,40 @@ import (
 	"strings"
 	"time"
 
+	"CHIMERA/internal/agent"
 	"CHIMERA/internal/clients/ollama"
-	"CHIMERA/internal/core"
 )
 
-var log = core.Log
-
-type Brain struct {
-	ollama       *ollama.OllamaClient
-	model        string
-	systemPrompt string
-	temperature  float64
-	format       any
-}
-
-const maxConversationMessages = 25
-
-func NewBrain() (*Brain, error) {
-	cfg := core.Config
-	if strings.TrimSpace(cfg.LLM.Host) == "" {
-		return nil, fmt.Errorf("llm.host is empty")
+func NewBrain() ( error) {
+	if strings.TrimSpace(config.LLM.Host) == "" {
+		return fmt.Errorf("llm.host is empty")
 	}
-	model := strings.TrimSpace(cfg.LLM.ModelMain)
+	model := strings.TrimSpace(config.LLM.ModelMain)
 	if model == "" {
-		return nil, fmt.Errorf("llm.model_main is empty")
+		return fmt.Errorf("llm.model_main is empty")
 	}
 
-	ps, err := LoadPrompts(cfg.Paths.PromptsDir)
+	ps, err := agent.LoadPrompts(config.Paths.PromptsDir)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	b := &Brain{
-		ollama:       ollama.NewOllamaClient(cfg.LLM.Host),
-		model:        model,
-		systemPrompt: strings.TrimSpace(ps.Start),
-		temperature:  cfg.LLM.Temperature,
+	Brain = BrainStruct{
+		Ollama:       ollama.NewOllamaClient(),
+		Model:        model,
+		SystemPrompt: strings.TrimSpace(ps.Start),
+		Temperature:  config.LLM.Temperature,
 	}
-	if strings.TrimSpace(cfg.LLM.Format) != "" {
-		b.format = strings.TrimSpace(cfg.LLM.Format)
+	if strings.TrimSpace(config.LLM.Format) != "" {
+		Brain.Format = strings.TrimSpace(config.LLM.Format)
 	}
 
-	log.Info("Brain initialized ", "component", "BRAIN", "model", b.model, "temperature", b.temperature)
-	return b, nil
+	log.Info("BrainStruct initialized ", "component", "BRAIN", "model", Brain.Model, "temperature", Brain.Temperature)
+	return nil
 }
 
-func (b *Brain) Chat(ctx context.Context, userText string) (string, error) {
-	if b == nil || b.ollama == nil {
+func (b *BrainStruct) Chat(ctx context.Context, userText string) (string, error) {
+	if b == nil || b.Ollama == nil {
 		return "", fmt.Errorf("brain not initialized")
 	}
 	userText = strings.TrimSpace(userText)
@@ -68,16 +56,16 @@ func (b *Brain) Chat(ctx context.Context, userText string) (string, error) {
 	}
 
 	msgs := []ollama.OllamaChatMessage{
-		{Role: "system", Content: b.systemPrompt},
+		{Role: "system", Content: b.SystemPrompt},
 		{Role: "user", Content: userText},
 	}
 
 	options := map[string]any{
-		"temperature": b.temperature,
+		"temperature": b.Temperature,
 	}
 
 	// Chat endpoint'i için JSON format zorlamıyoruz (format=nil).
-	content, err := b.ollama.Chat(ctx, b.model, msgs, nil, options)
+	content, err := b.Ollama.Chat(ctx, b.Model, msgs, nil, options)
 	if err != nil {
 		return "", err
 	}
@@ -86,14 +74,15 @@ func (b *Brain) Chat(ctx context.Context, userText string) (string, error) {
 
 // NewConversation creates a new conversation history seeded with the system prompt.
 // The returned slice can be kept per-connection and passed back to ChatStreamWithHistory.
-func (b *Brain) NewConversation() []ollama.OllamaChatMessage {
+func (b *BrainStruct) NewConversation() []ollama.OllamaChatMessage {
 	if b == nil {
 		return nil
 	}
-	return []ollama.OllamaChatMessage{{Role: "system", Content: b.systemPrompt}}
+	return []ollama.OllamaChatMessage{{Role: "system", Content: b.SystemPrompt}}
 }
 
 func trimConversation(history []ollama.OllamaChatMessage) []ollama.OllamaChatMessage {
+	maxConversationMessages := config.LLM.MaxConversationMessages
 	if len(history) <= maxConversationMessages {
 		return history
 	}
@@ -123,13 +112,13 @@ func trimConversation(history []ollama.OllamaChatMessage) []ollama.OllamaChatMes
 // ChatStreamWithHistory streams a response while including conversation history.
 // On success it returns the assistant full text plus the updated history (history+user+assistant).
 // On error, it returns the original history unchanged.
-func (b *Brain) ChatStreamWithHistory(
+func (b *BrainStruct) ChatStreamWithHistory(
 	ctx context.Context,
 	history []ollama.OllamaChatMessage,
 	userText string,
 	onDelta func(delta string),
 ) (string, []ollama.OllamaChatMessage, error) {
-	if b == nil || b.ollama == nil {
+	if b == nil || b.Ollama == nil {
 		return "", history, fmt.Errorf("brain not initialized")
 	}
 	userText = strings.TrimSpace(userText)
@@ -154,10 +143,10 @@ func (b *Brain) ChatStreamWithHistory(
 	msgs = append(msgs, ollama.OllamaChatMessage{Role: "user", Content: userText})
 
 	options := map[string]any{
-		"temperature": b.temperature,
+		"temperature": b.Temperature,
 	}
 
-	full, err := b.ollama.ChatStream(ctx, b.model, msgs, nil, options, onDelta)
+	full, err := b.Ollama.ChatStream(ctx, b.Model, msgs, nil, options, onDelta)
 	if err != nil {
 		// History'yi değiştirmeyelim; caller isterse retry edebilir.
 		return "", history, err
@@ -169,8 +158,8 @@ func (b *Brain) ChatStreamWithHistory(
 }
 
 // ChatStream tries to stream deltas from Ollama. If streaming fails, it falls back to Chat() and emits a single delta.
-func (b *Brain) ChatStream(ctx context.Context, userText string, onDelta func(delta string)) (string, error) {
-	if b == nil || b.ollama == nil {
+func (b *BrainStruct) ChatStream(ctx context.Context, userText string, onDelta func(delta string)) (string, error) {
+	if b == nil || b.Ollama == nil {
 		return "", fmt.Errorf("brain not initialized")
 	}
 	userText = strings.TrimSpace(userText)
@@ -185,22 +174,22 @@ func (b *Brain) ChatStream(ctx context.Context, userText string, onDelta func(de
 	}
 
 	msgs := []ollama.OllamaChatMessage{
-		{Role: "system", Content: b.systemPrompt},
+		{Role: "system", Content: b.SystemPrompt},
 		{Role: "user", Content: userText},
 	}
 
 	options := map[string]any{
-		"temperature": b.temperature,
+		"temperature": b.Temperature,
 	}
 
 	// Web chat için JSON format zorlamıyoruz; streaming'de de format=nil.
-	full, err := b.ollama.ChatStream(ctx, b.model, msgs, nil, options, onDelta)
+	full, err := b.Ollama.ChatStream(ctx, b.Model, msgs, nil, options, onDelta)
 	if err == nil {
 		return strings.TrimSpace(full), nil
 	}
 
 	// Fallback: streaming desteklenmiyorsa veya hata olursa tek seferlik yanıt üret.
-	content, err2 := b.ollama.Chat(ctx, b.model, msgs, nil, options)
+	content, err2 := b.Ollama.Chat(ctx, b.Model, msgs, nil, options)
 	if err2 != nil {
 		return "", err2
 	}

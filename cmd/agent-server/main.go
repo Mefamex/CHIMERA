@@ -2,14 +2,13 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"CHIMERA/cmd"
-	"CHIMERA/internal/agent"
+	"CHIMERA/internal/agent/brain"
 	"CHIMERA/internal/core"
 	"CHIMERA/internal/server"
 )
@@ -26,44 +25,32 @@ func main() {
 	}
 
 	// Brain'i Başlat
-	brain, err := agent.NewBrain()
+	err := brain.NewBrain()
 	if err != nil {
 		log.Error("❌ Kritik Hata: Brain başlatılamadı!", "error", err)
 		os.Exit(1)
 	}
-	time.Sleep(200 * time.Millisecond)
 
 	cmd.TryOllamaConnection()
 
 	// Web Sunucusunu Başlat (Hub ve API dahil)
-	app, err := server.Start(brain)
-	if err != nil {
-		log.Error("Sunucu başlatılamadı!", "error", err)
-		os.Exit(1)
-	}
-	addr := fmt.Sprintf("%s:%d", core.Config.Server.Host, core.Config.Server.Port)
-	errCh := make(chan error, 1)
-	go func() {
-		if err := app.Listen(addr); err != nil {
-			errCh <- err
-		}
-	}()
-	log.Info("Web Arayüz Yayında", "component", "WEB", "url", "http://"+addr)
+	server.Start()
 
-	// Wait for signals or server error
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-	select {
-	case sig := <-sigCh:
-		log.Warn("Kapanış sinyali alındı", "signal", sig)
-		server.HubInstance.Shutdown()
-		if err := app.Shutdown(); err != nil {
-			log.Error("Shutdown hatası", "error", err)
-		}
-	case err := <-errCh:
-		server.HubInstance.Shutdown()
-		log.Error("Sunucu hatası", "error", err)
+	// Block until shutdown signal
+	waitForShutdown()
+}
+
+func waitForShutdown() {
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	log.Warn("🔻 Kapanış sinyali alındı", "signal", <-quit)
+
+	if err := server.Shutdown(); err != nil {
+		log.Error("Shutdown sırasında hata oluştu", "error", err)
+	} else {
+		log.Info("✅ Uygulama güvenli şekilde kapatıldı.")
 	}
+	time.Sleep(100 * time.Millisecond)
 }
 
 // rasgele zamanlarda tüm bağlılara bildirim gönderici (ctx ile durdurulabilir)

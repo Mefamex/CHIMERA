@@ -2,15 +2,16 @@
 package ollama
 
 import (
-	"strings"
 	"net/http"
+	"strings"
 	"time"
 )
 
-func NewOllamaClient(baseURL string) *OllamaClient {
-	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+func NewOllamaClient() *OllamaClient {
+	url := strings.TrimRight(strings.TrimSpace(config.LLM.Host), "/")
+	log.Info("Created Ollama Client", "component", "OLLAMA", "host", url)
 	return &OllamaClient{
-		BaseURL: baseURL,
+		BaseURL: url,
 		HTTPClient: &http.Client{
 			Timeout: 600 * time.Second,
 		},

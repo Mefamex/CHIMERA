@@ -28,6 +28,7 @@ llm:
   temperature: 0.7
   context_window: 8192
   format: "json"
+  MaxConversationMessages : 25
 
 # services:
 #   python_analyzer:

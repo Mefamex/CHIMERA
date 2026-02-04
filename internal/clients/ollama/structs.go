@@ -1,7 +1,14 @@
 // file path: internal/clients/ollama/structs.go
 package ollama
 
-import "net/http"
+import (
+	"net/http"
+	"CHIMERA/internal/core"
+)
+
+// OllamaGlobals
+var log = core.Log
+var config = core.Config
 
 type OllamaClient struct {
 	BaseURL    string
@@ -9,7 +16,7 @@ type OllamaClient struct {
 }
 
 type OllamaModel struct {
-	ID          string   `json:"id,omitempty"`
+	ID string `json:"id,omitempty"`
 }
 
 type OllamaChatMessage struct {

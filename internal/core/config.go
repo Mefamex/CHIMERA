@@ -83,6 +83,7 @@ type configContainer struct {
 		ModelCoder  string  `yaml:"model_coder"`
 		Temperature float64 `yaml:"temperature"`
 		Format      string  `yaml:"format"`
+		MaxConversationMessages int    `yaml:"maxConversationMessages"`
 	} `yaml:"llm"`
 
 	Paths struct {
