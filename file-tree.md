@@ -26,9 +26,10 @@
 ┃       ┗━━ todo_to_json.txt
 ┃
 ┣━━ 📂 data
+┃   ┣━━ system_stacks_info.json
 ┃   ┣━━ 📂 db
 ┃   ┗━━ 📂 logs
-┃       ┗━━ system_stacks_info.json
+┃       ┗━━ readme-logs.md
 ┃
 ┣━━ 📂 internal
 ┃   ┣━━ 📂 agent
@@ -42,12 +43,17 @@
 ┃   ┃       ┣━━ status.go
 ┃   ┃       ┣━━ stream.go
 ┃   ┃       ┗━━ structs.go
-┃   ┣━━ 📂 config
-┃   ┃   ┗━━ config.go
+┃   ┣━━ 📂 common
+┃   ┣━━ 📂 core
+┃   ┃   ┣━━ config.go
+┃   ┃   ┣━━ init.go
+┃   ┃   ┗━━ logger.go
 ┃   ┣━━ 📂 models
 ┃   ┃   ┗━━ types.go
 ┃   ┗━━ 📂 server
 ┃       ┣━━ hub.go
+┃       ┣━━ server.go
+┃       ┣━━ structs.go
 ┃       ┗━━ websocket.go
 ┃
 ┣━━ 📂 runtimes

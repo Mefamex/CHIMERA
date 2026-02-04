@@ -4,13 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"CHIMERA/internal/clients/ollama"
 )
 
 func TryOllamaConnection() error {
-	time.Sleep(5 * time.Second)
+
 	baseURL := "http://localhost:11434"
 	client := ollama.OllamaClient{
 		BaseURL:    baseURL,

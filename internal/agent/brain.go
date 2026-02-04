@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"CHIMERA/internal/clients/ollama"
-	"CHIMERA/internal/config"
+	"CHIMERA/internal/core"
 )
+
+var log = core.Log
 
 type Brain struct {
 	ollama       *ollama.OllamaClient
@@ -20,10 +22,8 @@ type Brain struct {
 
 const maxConversationMessages = 25
 
-func NewBrain(cfg *config.Config) (*Brain, error) {
-	if cfg == nil {
-		return nil, fmt.Errorf("config is nil")
-	}
+func NewBrain() (*Brain, error) {
+	cfg := core.Config
 	if strings.TrimSpace(cfg.LLM.Host) == "" {
 		return nil, fmt.Errorf("llm.host is empty")
 	}
@@ -36,18 +36,18 @@ func NewBrain(cfg *config.Config) (*Brain, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Web sohbetinde zincirleme düşünce/plan JSON dökmeyelim; sadece kullanıcıya cevap verelim.
-	systemPrompt := strings.TrimSpace(ps.Start)
 
 	b := &Brain{
 		ollama:       ollama.NewOllamaClient(cfg.LLM.Host),
 		model:        model,
-		systemPrompt: systemPrompt,
+		systemPrompt: strings.TrimSpace(ps.Start),
 		temperature:  cfg.LLM.Temperature,
 	}
 	if strings.TrimSpace(cfg.LLM.Format) != "" {
 		b.format = strings.TrimSpace(cfg.LLM.Format)
 	}
+
+	log.Info("Brain initialized ", "component", "BRAIN", "model", b.model, "temperature", b.temperature)
 	return b, nil
 }
 

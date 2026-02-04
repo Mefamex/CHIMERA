@@ -4,7 +4,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -69,45 +68,11 @@ func sendTextResponse(clientID string, msgID string, text string) {
 	})
 }
 
-func conversationPlainSummary(history []ollama.OllamaChatMessage) string {
-	// Keep it short and human-friendly. No JSON.
-	var userCount, assistantCount int
-	var lastUser, lastAssistant string
-	for _, m := range history {
-		role := strings.ToLower(strings.TrimSpace(m.Role))
-		switch role {
-		case "user":
-			userCount++
-			if strings.TrimSpace(m.Content) != "" {
-				lastUser = strings.TrimSpace(m.Content)
-			}
-		case "assistant":
-			assistantCount++
-			if strings.TrimSpace(m.Content) != "" {
-				lastAssistant = strings.TrimSpace(m.Content)
-			}
-		}
-	}
-	if userCount == 0 {
-		return "Henüz konuşma geçmişi yok."
-	}
-	if lastUser == "" {
-		lastUser = "(boş)"
-	}
-	if lastAssistant == "" {
-		lastAssistant = "(boş)"
-	}
-	return "Konuşma özeti: " +
-		"Şu ana kadar " + strconv.Itoa(userCount) + " kullanıcı mesajı ve " + strconv.Itoa(assistantCount) + " yanıt var. " +
-		"Son kullanıcı mesajı: \"" + lastUser + "\". " +
-		"Son yanıt: \"" + lastAssistant + "\"."
-}
-
 // NewWebSocketHandler returns a websocket handler wired to a Brain.
 func NewWebSocketHandler(brain *agent.Brain) func(c *websocket.Conn) {
 	return func(c *websocket.Conn) {
 		// Bağlantı
-		log.Println("🔌 Yeni bir istemci bağlandı:", c.RemoteAddr())
+		log.Info("🔌 Yeni bir istemci bağlandı:", "component", "WEBSOCKET", "remote_addr", c.RemoteAddr())
 		defer c.Close() // Bağlantı kapandığında temizleme
 
 		// Client oluştur ve Hub'e kaydet
@@ -120,7 +85,7 @@ func NewWebSocketHandler(brain *agent.Brain) func(c *websocket.Conn) {
 		go func() {
 			for env := range client.Send {
 				if err := c.WriteJSON(env); err != nil {
-					log.Println("Hub'dan client'a gönderim hatası: ", err)
+					log.Info("Hub'dan client'a gönderim hatası", "component", "WEBSOCKET", "error", err)
 					return
 				}
 			}
@@ -129,7 +94,7 @@ func NewWebSocketHandler(brain *agent.Brain) func(c *websocket.Conn) {
 		// Hoşgeldin mesajı (hedefli) (istemci hakkında kısaca yazdır)
 		HubInstance.SendToClient(clientID, models.Envelope{
 			TargetID:  clientID,
-			Payload:   models.AgentResponse{Type: models.AgentTypeSystem, Content: "Secure Uplink Established to " + clientID},
+			Payload:   models.AgentResponse{Type: models.AgentTypeResponse, Content: "Secure Uplink Established to " + clientID +"\n System ready for commands."},
 			Timestamp: time.Now(),
 		})
 
@@ -143,7 +108,6 @@ func NewWebSocketHandler(brain *agent.Brain) func(c *websocket.Conn) {
 		// Per-connection state for simple deterministic behaviors.
 		countingMode := false
 		lastMeaningfulUserRequest := ""
-		lastAssistantMode := "" // e.g. offer_plain_summary
 
 		inbound := make(chan models.UserMessage)
 		done := make(chan struct{})
@@ -153,13 +117,13 @@ func NewWebSocketHandler(brain *agent.Brain) func(c *websocket.Conn) {
 			for {
 				_, msg, err := c.ReadMessage()
 				if err != nil {
-					log.Println("Bağlantı koptu (reader):", err)
+					log.Info("Bağlantı koptu (reader)", "component", "WEBSOCKET", "error", err)
 					close(done)
 					return
 				}
 				var userMsg models.UserMessage
 				if err := json.Unmarshal(msg, &userMsg); err != nil {
-					log.Println("JSON Hatası:", err)
+					log.Info("JSON Hatası", "component", "WEBSOCKET", "error", err)
 					continue
 				}
 				inbound <- userMsg
@@ -179,84 +143,11 @@ func NewWebSocketHandler(brain *agent.Brain) func(c *websocket.Conn) {
 				if userText == "" {
 					continue
 				}
-				log.Printf("📩 Gelen Mesaj: %s\n", userText)
+				log.Info("📩 Gelen Mesaj", "component", "WEBSOCKET", "message", userText)
 
 				lower := strings.ToLower(userText)
 
 				msgID := uuid.NewString()
-
-				isAffirm := lower == "olur" || lower == "tamam" || lower == "evet" || lower == "ok" || lower == "okay" || lower == "peki"
-				if isAffirm && lastAssistantMode == "offer_plain_summary" {
-					lastAssistantMode = ""
-					summary := conversationPlainSummary(conversation)
-					sendTextResponse(clientID, msgID, summary)
-					conversation = append(conversation,
-						ollama.OllamaChatMessage{Role: "user", Content: userText},
-						ollama.OllamaChatMessage{Role: "assistant", Content: summary},
-					)
-					conversation = trimConversation(conversation)
-					continue
-				}
-				// Update "last meaningful" request for "ne istedim senden" questions.
-				if len(userText) >= 4 && strings.TrimSpace(strings.Trim(userText, "0123456789")) != "" {
-					// Avoid storing trivial counting / filler.
-					if !strings.Contains(lower, "ne istedim") && !strings.Contains(lower, "what did i") {
-						lastMeaningfulUserRequest = userText
-					}
-				}
-
-				// Deterministic policies (cross-model reliability):
-				// 1) Don't reveal system prompt.
-				if strings.Contains(lower, "sistem prompt") || strings.Contains(lower, "system prompt") {
-					sendTextResponse(clientID, msgID, "Sistem promptumu paylaşamam.")
-					conversation = append(conversation,
-						ollama.OllamaChatMessage{Role: "user", Content: userText},
-						ollama.OllamaChatMessage{Role: "assistant", Content: "Sistem promptumu paylaşamam."},
-					)
-					conversation = trimConversation(conversation)
-					continue
-				}
-
-				// 2) Version hint: user expects the number they mentioned at the beginning.
-				if strings.Contains(lower, "version") && (strings.Contains(lower, "kaç") || strings.Contains(lower, "nedir") || strings.Contains(lower, "what")) {
-					sendTextResponse(clientID, msgID, "2")
-					conversation = append(conversation,
-						ollama.OllamaChatMessage{Role: "user", Content: userText},
-						ollama.OllamaChatMessage{Role: "assistant", Content: "2"},
-					)
-					conversation = trimConversation(conversation)
-					continue
-				}
-
-				// 3) Refuse dumping conversation as JSON.
-				if strings.Contains(lower, "json") && (strings.Contains(lower, "mesaj") || strings.Contains(lower, "sohbet")) {
-					resp := "Bunu yapamam. İstersen konuşmayı düz metin olarak özetleyebilirim."
-					lastAssistantMode = "offer_plain_summary"
-					sendTextResponse(clientID, msgID, resp)
-					conversation = append(conversation,
-						ollama.OllamaChatMessage{Role: "user", Content: userText},
-						ollama.OllamaChatMessage{Role: "assistant", Content: resp},
-					)
-					conversation = trimConversation(conversation)
-					continue
-				}
-
-				// 4) Answer "en son ... ne" questions deterministically.
-				asksLast := strings.Contains(lower, "en son") || strings.Contains(lower, "az önce") || strings.Contains(lower, "what is my last") || strings.Contains(lower, "what did i")
-				if strings.Contains(lower, "ne istedim") || strings.Contains(lower, "ne istemiştim") ||
-					(asksLast && (strings.Contains(lower, "ne") || strings.Contains(lower, "sor") || strings.Contains(lower, "isted") || strings.Contains(lower, "yaz"))) {
-					resp := lastMeaningfulUserRequest
-					if strings.TrimSpace(resp) == "" {
-						resp = "Az önce net bir isteğin yoktu."
-					}
-					sendTextResponse(clientID, msgID, resp)
-					conversation = append(conversation,
-						ollama.OllamaChatMessage{Role: "user", Content: userText},
-						ollama.OllamaChatMessage{Role: "assistant", Content: resp},
-					)
-					conversation = trimConversation(conversation)
-					continue
-				}
 
 				// 4b) "en son istediğimi yap" gibi komutlar: önce son isteği hatırlat.
 				if strings.Contains(lower, "en son") && strings.Contains(lower, "yap") {

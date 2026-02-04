@@ -3,112 +3,66 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
-
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/gofiber/websocket/v2"
-
-	"CHIMERA/internal/agent"
-	"CHIMERA/internal/config"
-	"CHIMERA/internal/server"
-	"CHIMERA/scripts"
+	"time"
 
 	"CHIMERA/cmd"
+	"CHIMERA/internal/agent"
+	"CHIMERA/internal/core"
+	"CHIMERA/internal/server"
 )
 
+var log = core.Log
+
 func main() {
-	// Config Yükle
-	cfg, err := config.LoadConfig("./configs/config.yaml")
+
+	// CORE SİSTEMİ BAŞLAT (Config, Logger, Klasörler)
+	// core.Setup() içinde zaten Config yükleniyor ve Logger ayarlanıyor.
+	if err := core.SetupCore(); err != nil {
+		core.Log.Error("Sistem başlatılamadı!", "error", err)
+		os.Exit(1)
+	}
+
+	// Brain'i Başlat
+	brain, err := agent.NewBrain()
 	if err != nil {
-		log.Fatalf("❌ Kritik Hata: Config yüklenemedi! \n%v", err)
+		log.Error("❌ Kritik Hata: Brain başlatılamadı!", "error", err)
+		os.Exit(1)
 	}
+	time.Sleep(200 * time.Millisecond)
 
-	// Bilgi Yazdır
-	fmt.Println("🚀 CHIMERA AGENT BAŞLATILIYOR...")
-	fmt.Printf("✅ Konfigürasyon: %s (v%s) | Port: %d\n", cfg.App.Name, cfg.App.Version, cfg.Server.Port)
+	cmd.TryOllamaConnection()
 
-	brain, err := agent.NewBrain(cfg)
+	// Web Sunucusunu Başlat (Hub ve API dahil)
+	app, err := server.Start(brain)
 	if err != nil {
-		log.Fatalf("❌ Kritik Hata: Brain başlatılamadı! \n%v", err)
+		log.Error("Sunucu başlatılamadı!", "error", err)
+		os.Exit(1)
 	}
-
-	// Fiber Uygulamasını Oluştur
-	app := fiber.New(fiber.Config{
-		AppName: cfg.App.Name,
-	})
-
-	// Loglama Middleware'i (Terminalde HTTP isteklerini görmek için)
-	app.Use(logger.New())
-
-	// Geliştirme ortamında statik dosya cache'ini kapat (app.js güncellemeleri anında gelsin)
-	if cfg.App.Environment == "development" {
-		app.Use(func(c *fiber.Ctx) error {
-			c.Set("Cache-Control", "no-store")
-			c.Set("Pragma", "no-cache")
-			c.Set("Expires", "0")
-			return c.Next()
-		})
-	}
-
-	// Statik Dosyalar (HTML/CSS/JS)
-	app.Static("/", "./web/static")
-
-	// WebSocket Yolu
-	app.Use("/ws", func(c *fiber.Ctx) error {
-		if websocket.IsWebSocketUpgrade(c) {
-			c.Locals("allowed", true)
-			return c.Next()
-		}
-		return fiber.ErrUpgradeRequired
-	})
-	app.Get("/ws", websocket.New(server.NewWebSocketHandler(brain)))
-	fmt.Println("✅ WebSocket Yolu Ayarlandı.")
-
-	// API Yolları
-	app.Get("/api/stacks", func(c *fiber.Ctx) error {
-		status, err := scripts.Stacks_info()
-		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
-		}
-		return c.JSON(status)
-	})
-	fmt.Println("✅ API Yolları Ayarlandı.")
-
-	// Hub'i çalıştır
-	go server.HubInstance.Run()
-
-	// 6. Sunucuyu Başlat
-	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	fmt.Printf("🌍 Arayüz Yayında: http://%s\n", addr)
-
+	addr := fmt.Sprintf("%s:%d", core.Config.Server.Host, core.Config.Server.Port)
 	errCh := make(chan error, 1)
 	go func() {
 		if err := app.Listen(addr); err != nil {
 			errCh <- err
 		}
 	}()
-	
-	cmd.TryOllamaConnection()
+	log.Info("Web Arayüz Yayında", "component", "WEB", "url", "http://"+addr)
 
-	// Ctrl+C veya SIGTERM bekle
+	// Wait for signals or server error
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-
 	select {
 	case sig := <-sigCh:
-		fmt.Println("\n\nAlındı:", sig, "- sunucu kapatılıyor...")
-		// hub'i kapat
+		log.Warn("Kapanış sinyali alındı", "signal", sig)
 		server.HubInstance.Shutdown()
 		if err := app.Shutdown(); err != nil {
-			log.Printf("Shutdown hatası: %v", err)
+			log.Error("Shutdown hatası", "error", err)
 		}
 	case err := <-errCh:
 		server.HubInstance.Shutdown()
-		log.Fatalf("\n\nSunucu hatası: %v", err)
+		log.Error("Sunucu hatası", "error", err)
 	}
 }
 

@@ -46,5 +46,4 @@ telegram:
 paths:
   prompts_dir: "./configs/prompts"
   database: "./data/db/chimera.db"
-  logs: "./data/logs"
-  downloads: "./data/downloads"
+  logsdir: "./data/logs"

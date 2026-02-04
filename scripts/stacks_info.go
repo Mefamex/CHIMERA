@@ -63,9 +63,9 @@ func Stacks_info() (SystemStatus, error) {
 	}
 
 	// 3. JSON Dosyasına Kaydet
-	savePath := "data/logs/system_stacks_info.json"
+	savePath := "data/system_stacks_info.json"
 	// Klasör yoksa oluştur (Garanti olsun)
-	os.MkdirAll("data/logs", 0755)
+	os.MkdirAll("data", 0755)
 
 	err = os.WriteFile(savePath, jsonData, 0644)
 	if err != nil {

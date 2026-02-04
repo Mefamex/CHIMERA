@@ -30,7 +30,7 @@ node_modules/
 data/db/*.db
 data/db/*.sqlite
 # Log dosyaları
-data/logs/*.log
+data/logs/*.json
 # İndirilen dosyalar
 data/downloads/*
 
@@ -48,6 +48,7 @@ data/downloads/*
 # --- 8. ARCH LINUX / SYSTEM ---
 *.pkg.tar.zst
 core
+!internal/**/core
 
 # --- 9. THIRD_PARTY / HARICI KABUL ÖNERİSİ ---
 

@@ -42,15 +42,6 @@ Sistemin internete açılan gözleridir.
 
 * **Görevi:** Modern web sitelerini taramak (Scraping), JavaScript çalıştıran sayfalarla etkileşime girmek (Puppeteer/Playwright) ve browser tabanlı otomasyonları yönetmektir.
 
-### 4. The Face (Kullanıcı Arayüzü) - `Vanilla Web`
-
-Sistemin dışarıya açılan yüzüdür.
-
-* **Yapısı:** Framework bağımsız (React/Vue yok), saf HTML/CSS/JS ile yazılmış yüksek performanslı arayüz.
-* **Özelliği:** "Split-Screen" (Bölünmüş Ekran) yapısı sayesinde sol tarafta sohbet akarken, sağ tarafta Ajanın terminal çıktıları, düşünce süreci ve kullandığı araçlar canlı izlenir.
-
----
-
 ## 🚀 Temel Özellikler ve Yetenekler
 
 * **Döngüsel Akıl Yürütme (ReAct Loop):** *Düşün -> Planla -> Uygula -> Gözlemle -> Tekrar Düşün.*
@@ -61,16 +52,6 @@ Sistemin dışarıya açılan yüzüdür.
 
 ---
 
-## 📂 Klasör Yapısı Mantığı
-
-Bu proje **Monorepo** yapısındadır ancak her servis kendi bağımsız krallığına sahiptir:
-
-* **`cmd/` & `internal/**`: Go dilinin standart proje düzenidir. Sistemin çekirdek mantığı (Brain) burada tutulur ve dışarıdan erişime kapalıdır.
-* **`services/`**: Yan servislerin (Python ve Node) bulunduğu alandır. Her klasörün kendi paket yöneticisi (`venv`, `node_modules`) vardır. Bu sayede bağımlılık çakışması (Dependency Hell) yaşanmaz.
-* **`web/`**: Go sunucusu tarafından sunulan statik frontend dosyalarıdır.
-* **`configs/prompts/`**: Yapay Zekanın "Kişiliği" kodun içine gömülmez. `.txt` dosyaları olarak burada tutulur. Prompt mühendisliği buradan yönetilir.
-
----
 
 ## 🔄 Çalışma Akışı (Workflow)
 
@@ -87,18 +68,66 @@ Bu proje **Monorepo** yapısındadır ancak her servis kendi bağımsız krallı
 * *Yetersizse:* Döngü başa döner (Retry).
 * *Yeterliyse:* Sonuç kullanıcıya doğal dilde sunulur.
 
-
-
 ---
 
-## 🛠️ Teknoloji Yığını (Tech Stack)
+## 🤖 Asistan-Odaklı Rehber
 
-* **Core Logic:** Go (Golang) 1.25.6
-* **Web Server:** Go Fiber & Gorilla WebSocket
-* **Data Processing:** Python 3.11+ (FastAPI, Pydantic)
-* **Browser Automation:** Node.js (Express, Puppeteer)
-* **LLM Inference:** Ollama (Qwen 2.5 14b, Llama 3)
-* **Frontend:** HTML5, CSS3, Vanilla JS (No Framework)
-* **Database:** SQLite (Hafif ve yerel loglama için)
+Bu kısım, projenin "asistan" (agent) perspektifinden tam bir özetidir: yetenekler, mimari bileşenler, hafıza modeli, güvenlik ve geliştirme öncelikleri. Amaç: gelecekte bu repoyu okuyan bir geliştiricinin veya kullanıcıyın agent'in ne yaptığını, nerede olduğunu ve nasıl genişletileceğini hızlıca anlamasıdır.
 
----
+**Asistan Önceliği**
+- CHIMERA bir "asistan platformu"dur; ana hedef agent'in yetenekleri, yetki sınırları, hafızası ve güvenlik politikalarıdır. Kurulum talimatlarından ziyade agent davranışı ve genişletilebilirlik odaklıdır.
+
+**Bir Bakışta Yetenekler (Skills)**
+- Sistem kontrolü: `skills` modülleri aracılığıyla dosya/klasör yönetimi, süreç başlatma/durdurma, paket kurulumları.
+- Terminal komutları: `cmd` modülü ile shell/terminal komutları çalıştırma ve çıktıyı yakalama.
+- Klavye kontrolü: `keyboard` yeteneği ile otomatik metin yazma, tuş kombinasyonları ve kısa yollar.
+- Dosya işlemleri: oluşturma, okuma, düzenleme, kopyalama, silme.
+- Yazılım yönetimi: paket yükleme, servis başlatma/durdurma, derleme işlemleri.
+- Kod yazma/çeşitlendirme: yeni proje/dosya oluşturma ve temel kod düzenleme (scaffold).
+- İnternet araştırması: tarama, scraping ve veri çekme (Node.js puppeteer/playwright ile).
+- Mesaj uygulamaları: Telegram/WhatsApp/Signal için modüler entegrasyon (isteğe bağlı, ayrı modüller).
+- Kişiselleştirilmiş öğrenme: kullanıcı davranışını izleyip tercihleri hafızada tutma.
+- Hatırlatıcılar & takvim: yerel hatırlatıcılar ve zamanlanmış görevler.
+- Kendini geliştirme: yeni `skills` ekleyebilecek plug-in altyapısı.
+
+**Mimari (Agent Perspektifi) — Kısa**
+- Orkestratör (Brain) — `Go`: `cmd/` ve `internal/` içindeki `agent.Brain` agent'in merkezi; LLM çağrıları, planlama ve karar döngüsü burada yürütülür. (bkz: [internal/agent/brain.go](internal/agent/brain.go))
+- LLM İstemcisi — `internal/clients/ollama`: Ollama ile sohbet/streaming iletişimi sağlar. (bkz: [internal/clients/ollama/client.go](internal/clients/ollama/client.go))
+- Web Arayüzü — `web/static`: canlı gözlem, onay ve etkileşim için split-screen arayüz.
+- WS & API — `cmd/agent-server/main.go` HTTP ve WebSocket giriş noktaları ve uygulama başlatma.
+- Python servisleri: arama, veri işleme ve analiz için ayrılmış mikroservisler.
+- Node.js servisleri: tarayıcı otomasyonu ve JS-uygulama etkileşimleri (puppeteer/playwright).
+
+**Hafıza & Veri**
+- Kalıcı hafıza dizini: `data/db/` — SQLite veya benzeri hafif DB planlanmıştır.
+- Örnek tablo seti: `users`, `memories`, `reminders`, `skills_meta`.
+- Gizlilik: Kişisel veriler şifrelenmeli; erişim sadece yerel ve yetkili süreçlere verilmeli.
+- Kısa dönem kontekst: WebSocket/bağlantı başına RAM tabanlı konuşma geçmişi; uzun vadeli bağlam gerektiğinde özetleme yapıp DB'ye kaydetme.
+
+**İletişim Kanalları**
+- Yerel Web UI: ana kontrol ve manuel onay noktası.
+- Mesaj uygulamaları: Telegram/WhatsApp/Signal — her biri adapter şeklinde izole edilerek eklenmeli.
+
+**Prompt Mühendisliği & LLM**
+- Prompt'lar `configs/prompts/` dizininde tutulur; agent persona ve başlangıç talimatları buradan yönetilir.
+- `Brain` streaming ve normal chat metodlarıyla LLM'den cevap alır (bkz: [internal/agent/brain.go](internal/agent/brain.go)).
+
+**Güvenlik & İzinler (Kritik)**
+- Agent yalnızca sahibinin makinesinde çalışacak şekilde sınırlandırılmalıdır.
+- Tehlikeli yetenekler (`allow_cmd`, `allow_keyboard`, `allow_network`) policy ile açıkça kontrol edilmeli.
+- API anahtarları ve hassas konfigürasyonlar dosyaya düz metin yazılmamalı; çevre değişkenleri veya şifrelenmiş saklama tercih edilmeli.
+
+**Öncelikli Yapılacaklar (Roadmap)**
+1. İzin & güvenlik katmanının (policy engine) uygulanması. (yüksek öncelik)
+2. `skills` altyapısının modüler hale getirilmesi — plugin/adapter mimarisi.
+3. Kalıcı hafıza: SQLite şema tasarımı, migration ve CRUD API'leri.
+4. Telegram entegrasyonu: temel POC (güvenli token yönetimi ile).
+5. Browser automation POC (Node.js + puppeteer) ve hata tolerans mekanizmaları.
+
+**Geliştirme Kuralları / Prensipler**
+- Her yeni yetenek küçük, izole bir modül olarak eklenmeli; `Brain` sadece yönlendirme ve güvenlik kararlarını vermeli.
+- Kullanıcı izni gerektiren eylemler için manuel onay veya policy tabanlı otomasyon zorunlu olmalı.
+- Loglar `data/logs/` altında tutulmalı; gerektiğinde anonimleştirilebilmeli.
+
+**Notlar ve İleri Adımlar**
+- Bu belge asistan-odaklı rehber olarak güncellenecektir. İstersen, bu içeriği `docs/DEV.md` altında daha detaylı geliştirici rehberine dönüştürebilirim.
