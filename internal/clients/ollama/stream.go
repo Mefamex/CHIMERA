@@ -13,7 +13,6 @@ import (
 	"strings"
 )
 
-
 func (c *OllamaClient) ChatStream(
 	ctx context.Context,
 	model string,

@@ -2,8 +2,8 @@
 package ollama
 
 import (
-	"net/http"
 	"CHIMERA/internal/core"
+	"net/http"
 )
 
 // OllamaGlobals

@@ -44,6 +44,7 @@ func trimConversation(history []ollama.OllamaChatMessage) []ollama.OllamaChatMes
 	return trimmed
 }
 
+// sendTextResponse is a helper to send a simple text response in the expected format.
 func sendTextResponse(clientID string, msgID string, text string) {
 	HubInstance.SendToClient(clientID, models.Envelope{
 		ID:        msgID,
@@ -137,8 +138,7 @@ func NewWebSocketHandler() func(c *websocket.Conn) {
 				if userText == "" {
 					continue
 				}
-				log.Info("📩 Gelen Mesaj", "component", "WEBSOCKET", "message", userText[:50])
-
+				log.Info("📩 Gelen Mesaj", "component", "WEBSOCKET", "message", userText[:min(len(userText), 50)])
 				msgID := uuid.NewString()
 
 				ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)

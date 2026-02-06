@@ -13,6 +13,7 @@ help:
 	@echo "  make python-req    - install python requirements into venv\n"
 	@echo "  make activate-venv - print command to activate python venv\n"
 	@echo "  make tree          - generate project tree structure\n"
+	@echo "  make file_analysis - analyze project files\n"
 	@echo "  make stacks_info   - get info about supported stacks\n"
 
 # Run the main project (Go server)

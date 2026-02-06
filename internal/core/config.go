@@ -62,7 +62,6 @@ type configContainer struct {
 		Environment string `yaml:"environment"`
 		Debug       bool   `yaml:"debug"`
 	} `yaml:"app"`
-
 	Server struct {
 		Host         string `yaml:"host"`
 		Port         int    `yaml:"port"`
@@ -70,26 +69,26 @@ type configContainer struct {
 		WriteTimeout string `yaml:"write_timeout"`
 	} `yaml:"server"`
 
-	Runtime struct {
+	Runtimes struct {
 		Python      string `yaml:"python"`
 		NodeModules string `yaml:"node_modules"`
 		NodeBin     string `yaml:"node_bin"`
-	} `yaml:"runtime"`
+	} `yaml:"runtimes"`
 
 	LLM struct {
-		Provider    string  `yaml:"provider"`
-		Host        string  `yaml:"host"`
-		ModelMain   string  `yaml:"model_main"`
-		ModelCoder  string  `yaml:"model_coder"`
-		Temperature float64 `yaml:"temperature"`
-		Format      string  `yaml:"format"`
-		MaxConversationMessages int    `yaml:"maxConversationMessages"`
+		Provider                string  `yaml:"provider"`
+		Host                    string  `yaml:"host"`
+		ModelMain               string  `yaml:"model_main"`
+		ModelCoder              string  `yaml:"model_coder"`
+		Temperature             float64 `yaml:"temperature"`
+		Format                  string  `yaml:"format"`
+		MaxConversationMessages int     `yaml:"max_conversation_messages"`
 	} `yaml:"llm"`
 
 	Paths struct {
 		PromptsDir string `yaml:"prompts_dir"`
 		Database   string `yaml:"database"`
-		LogsDir    string `yaml:"logs"`
+		LogsDir    string `yaml:"logsdir"`
 	} `yaml:"paths"`
 }
 
@@ -141,6 +140,16 @@ func (c *configContainer) Reload() error {
 	*c = temp
 	// Burası sıkıntılıydı ha.. çok kullanma bu yapıyı (*x = y -> Deep Copy)
 	fmt.Printf("[CONFIG] ✅ Config OK: %s\n", configPath)
+	// ATTEMPTION: write a checker every required field and return error if missing (after unmarshal)
+
+	// print with indent
+	out, err := yaml.Marshal(c)
+	if err != nil {
+		fmt.Printf("[CONFIG] ⚠️ print marshal error: %v\n", err)
+	} else {
+		fmt.Println(string(out))
+	}
+
 	return nil
 }
 

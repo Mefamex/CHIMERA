@@ -1,0 +1,10 @@
+{
+    "readfile": {
+        "Category": "fileSystem",
+        "Path": "./internal/skills/readFile.py",
+        "Desc": "Read the contents of a file.",
+        "Params": ["filePath"],
+        "Returns": {"path": "str", "error": "str", "total_lines": "int", "ended_line": "int", "lines": "[string]"},
+        "Example": "readFile('/path/to/file.txt')"
+    }
+}

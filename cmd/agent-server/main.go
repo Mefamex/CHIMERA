@@ -31,7 +31,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cmd.TryOllamaConnection()
+	go cmd.TryOllamaConnection()
 
 	// Web Sunucusunu Başlat (Hub ve API dahil)
 	server.Start()

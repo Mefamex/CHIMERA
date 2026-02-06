@@ -48,7 +48,7 @@ func (c *OllamaClient) IsOnline(ctx context.Context) (bool, error) {
 		} else {
 			content = string(data)
 		}
-		if !strings.Contains(content, "Ollama is running"){
+		if !strings.Contains(content, "Ollama is running") {
 			return false, nil
 		}
 	}

@@ -13,10 +13,18 @@ func SetupCore() error {
 		return fmt.Errorf("config yükleme hatası: %w", err)
 	}
 	time.Sleep(200 * time.Millisecond)
+
 	InitLogger()
 	time.Sleep(200 * time.Millisecond)
+
+	if err := InitRuntimes(); err != nil {
+		return fmt.Errorf("runtime kontrol hatası: %w", err)
+	}
+	time.Sleep(200 * time.Millisecond)
+
 	Log.Info("CHIMERA Core Sistemleri Hazır", "component", "SYS")
 	time.Sleep(200 * time.Millisecond)
+
 	return nil
 	// maybe errors.go
 }

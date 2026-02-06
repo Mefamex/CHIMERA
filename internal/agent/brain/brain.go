@@ -11,7 +11,7 @@ import (
 	"CHIMERA/internal/clients/ollama"
 )
 
-func NewBrain() ( error) {
+func NewBrain() error {
 	if strings.TrimSpace(config.LLM.Host) == "" {
 		return fmt.Errorf("llm.host is empty")
 	}

@@ -20,4 +20,3 @@ type BrainStruct struct {
 	Temperature  float64
 	Format       any
 }
-
