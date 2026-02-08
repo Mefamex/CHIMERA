@@ -1,47 +1,24 @@
 # -*- coding: utf-8 -*-
 # Created on  : 2025-08-09
-# Updated on  : 2025-08-13
+# Updated on  : 2026-02-08
 # @author     : mefamex
 # FOR         : folder depth file
 
-print(
-    "\n",
-    "#" * 30,
-    "\n"
-    "**Dizin Yapısı Görselleştirme Aracı**\n\n"
-    "Bu Python uygulaması, belirtilen bir dizin yolundaki tüm dosya ve dizinleri detaylı bir şekilde analiz eder.\n"
-    "Dosya boyutları, oluşturulma tarihleri, dizin hiyerarşisi gibi bilgileri görsel ve metinsel olarak sunar.\n"
-    "Sistem yöneticileri, geliştiriciler ve veri bilimcileri için disk kullanımını optimize etmek, dosya yönetimini\n"
-    "kolaylaştırmak ve veri analizi yapmak için ideal bir araçtır.\n\n"
-    "**Ana Özellikler:**\n"
-    "* **Rekürsif Dizin Gezimi:** Belirtilen dizin ve tüm alt dizinlerini inceler.\n"
-    "* **Detaylı Bilgi Toplama:** Dosya boyutu, oluşturulma tarihi, dizin derinliği gibi bilgileri hesaplar.\n"
-    "* **Formatlı Çıkış:** Tablo şeklinde okunaklı bir terminal çıktısı sunar.\n"
-    "* **Metin Dosyasına Kaydetme:** Sonuçları bir metin dosyasına kaydeder.\n"
-    "* **Özelleştirilebilir:** Çıkış formatı, analiz derinliği gibi ayarlar yapılabilir.\n\n"
-    "**Kullanılan Modüller:**\n"
-    "* os modülü\n"
-    "* datetime modülü\n\n"
-    "**Uyarılar:**\n"
-    "* Çok büyük dizinlerde performans düşüşü yaşanabilir.\n"
-    "* Dosya erişim hakları konusunda dikkatli olunmalıdır.\n\n"
-    + "#" * 82 + "\n\n"
-)
-
-__version__ = '1.0.3'
-__last_modified__ = '2025-08-13'
+__version__ = '1.0.4'
 
 import os,time, datetime
 
+print_results = False
 # Hedef Uzantılar
-TARGET_EXTENSIONS = {}# {'txt', 'bat', 'md', 'py', 'html', 'css', 'js', 'json', 'webmanifest'}
+TARGET_EXTENSIONS = []# {'txt', 'bat', 'md', 'py', 'html', 'css', 'js', 'json', 'webmanifest'}
 # starts with or ends with
-IGNORED_FOLDERS_NAME = {
+IGNORED_FOLDERS_NAME = [
     'out', 'build', 'dist', 'bin', 'obj', 'env', 'venv', '.venv', 'node_modules',
     '.git', '.svn', '.hg', '.idea', '.vscode', '__pycache__', 'third_party' , 'node_modules'
-}
-IGNORED_FOLDERS_STARTS_WITH = {'.', '__'}
-IGNORED_FOLDERS_ENDS_WITH = { '__pycache__' }
+]
+IGNORED_FOLDERS_STARTS_WITH = ['.', '__']
+IGNORED_FOLDERS_ENDS_WITH = ['__pycache__']
+IGNORED_FILES_ENDS_WITH = ['.log', '.tmp', '.bak', '.backup', '.swp', '.swo','.png']
 
 PROJECT_NAME = "CHIMERA-AI"  # Path(os.getcwd()).name
 
@@ -96,7 +73,7 @@ def check_ignored_folders(folder_name):
         if base_name.endswith(suffix) and base_name != suffix:return True
     return False
 
-def analyze_directory(directory):
+def analyze_directory(directory,print_results=True):
     global text
     target_extensions = TARGET_EXTENSIONS
     grand_total_char, grand_total_files = 0, 0
@@ -107,7 +84,8 @@ def analyze_directory(directory):
         results = {ext.lstrip('.'): {'files': [], 'total_chars': 0} for ext in target_extensions}
         accept_all_exts = False
     ignored_ALL = []
-    print("ANALYZING...")
+    ignored_FILES_ALL = []
+    if print_results: print("ANALYZING...")
     for root, dirs, files in os.walk(directory):
         ignored = []
         for d in list(dirs):
@@ -118,31 +96,48 @@ def analyze_directory(directory):
             rel_path = os.path.relpath(os.path.join(root, d), directory)
             if rel_path == ".": rel_path = "\\"
             else: rel_path = "\\" + rel_path.replace("\\", "/")
-            print(f"!!! PASS : {rel_path}")
+            if print_results: print(f"!!! PASS : {rel_path}")
         rel_path = os.path.relpath(root, directory)
         if rel_path == ".": rel_path = "\\"
         else: rel_path = "\\" + rel_path.replace("\\", "/")
-        print("reading folder:", root)
+        if print_results: print("reading folder:", root)
+        # dosya bazlı yoksayılan ekler (sonek ile)
+        ignored_files = []
         for file in files:
+            # sonek bazlı yoksayma kontrolü
+            if any(file.lower().endswith(suffix.lower()) for suffix in IGNORED_FILES_ENDS_WITH):
+                ignored_files.append(file)
+                if print_results:
+                    rel_path = os.path.relpath(os.path.join(root, file), directory)
+                    if rel_path == ".": rel_path = "\\"
+                    else: rel_path = "\\" + rel_path.replace("\\", "/")
+                    if print_results: print(f"!!! PASS FILE : {rel_path}")
+                continue
+
             _, ext = os.path.splitext(file)
             ext_key = ext.lstrip('.')
             if ext_key == '': ext_key = 'noext'
+            file_path = os.path.join(root, file)
+            char_count = count_characters_in_file(file_path)
             if accept_all_exts:
                 if ext_key not in results:  results[ext_key] = {'files': [], 'total_chars': 0}
-                file_path = os.path.join(root, file)
-                char_count = count_characters_in_file(file_path)
                 results[ext_key]['files'].append(file_path)
                 results[ext_key]['total_chars'] += char_count
             else:
                 if any(ext_key == key.lstrip('.') for key in target_extensions):
-                    file_path = os.path.join(root, file)
-                    char_count = count_characters_in_file(file_path)
                     results[ext_key]['files'].append(file_path)
                     results[ext_key]['total_chars'] += char_count
+
         ignored_ALL.extend(ignored)
+        ignored_FILES_ALL.extend(ignored_files)
+
+    # rapor amaçlı (kök üzerinde bulunan son tutulan ignored listesini yazdır)
     for ign in ignored_ALL:
-        rel_path = os.path.relpath(os.path.join(root, ign), directory)
-        print(f"!!! PASS : {rel_path}")
+        rel_path = os.path.relpath(os.path.join(directory, ign), directory)
+        if print_results: print(f"!!! PASS : {rel_path}")
+    for ignf in ignored_FILES_ALL:
+        rel_path = os.path.relpath(ignf, directory)
+        if print_results: print(f"!!! PASS FILE (summary) : {rel_path}")
 
     # Toplam değerleri hesapla
     for ext in results:
@@ -153,21 +148,22 @@ def analyze_directory(directory):
     table_output = create_table(results, grand_total_char, grand_total_files)
     text += table_output
 
-    print("\nDONE.\n\n\n")
+    if print_results: print("\nDONE.\n\n\n")
 
 
 
 if __name__ == "__main__":
     current_dir = os.getcwd()
-    print(f"Analiz edilen dizin: {current_dir}")
-    time.sleep(1)
     
-    analyze_directory(current_dir)
+    print(f"Analiz edilen dizin: {current_dir}")
+    #time.sleep(1)
+    
+    analyze_directory(current_dir, print_results=print_results)
     
     # Sonuçları yazdır
     for line in text.split("\n"):
-        print(line)
-        time.sleep(0.1)
+        if print_results: print(line)
+        #time.sleep(0.1)
 
     # Dosyaya kaydet
     filename = f"_folder_analysis_results.txt" #_{datetime.datetime.now().strftime('%Y-%m-%d %H.%M.%S')}.txt"

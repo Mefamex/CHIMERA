@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHIMERA - Log Viewer</title>
+    <link rel="icon" type="image/png" href="../favicon.png" />
+    <link rel="stylesheet" href="../third_party/bootstrap.min.css">
+    <style>
+        :root {
+            --bg-dark: #1e1e1e;
+            --bg-panel: #252526;
+            --text-main: #d4d4d4;
+            --border-color: #3e3e42;
+            --accent-blue: #0e639c;
+            --log-chat-user: #2a2d3e;
+            --log-chat-agent: #1f3a52;
+            --log-error: #5a1d1d;
+            --log-tool: #2d2d2d;
+            --log-system: #252526;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar (Session List) */
+        #sidebar {
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border-color);
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .session-item {
+            cursor: pointer;
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .session-item:hover,
+        .session-item.active {
+            background-color: var(--accent-blue);
+            color: white;
+        }
+
+        /* Main Content */
+        #main-content {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+        }
+
+        /* Header & Filters */
+        #top-bar {
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border-color);
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        #component-bar {
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        #component-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .component-action-btn {
+            background: #2f2f2f;
+            border: 1px solid #3e3e42;
+            color: #c9c9c9;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .component-action-btn:hover {
+            background: #3a3a3a;
+            color: #fff;
+        }
+
+        #component-list {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .component-item {
+            font-size: 0.8rem;
+            color: #b5b5b5;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        #selected-components {
+            font-size: 0.8rem;
+            color: #9aa0a6;
+        }
+
+        .filter-group label {
+            margin-right: 15px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        #filter-actions {
+            display: inline-flex;
+            gap: 6px;
+            margin-left: 10px;
+        }
+
+        .filter-action-btn {
+            background: #2f2f2f;
+            border: 1px solid #3e3e42;
+            color: #c9c9c9;
+            font-size: 0.7rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .filter-action-btn:hover {
+            background: #3a3a3a;
+            color: #fff;
+        }
+
+        /* Log Stream Container */
+        #log-stream {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: #1e1e1e;
+        }
+
+        /* --- LOG CARDS --- */
+        .log-card {
+            margin-bottom: 12px;
+            border-radius: 6px;
+            padding: 10px;
+            border-left: 4px solid transparent;
+            font-size: 0.9rem;
+            position: relative;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .log-time {
+            font-family: 'Consolas', monospace;
+            font-size: 0.75rem;
+            color: #858585;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        /* Type: CHAT */
+        .type-chat {
+            border-left-color: #4caf50;
+            background-color: var(--log-chat-agent);
+            max-width: 80%;
+        }
+
+        .type-chat.sender-User {
+            background-color: var(--log-chat-user);
+            margin-left: auto;
+            border-left-color: #2196f3;
+            border-right: 4px solid #2196f3;
+            border-left: none;
+        }
+
+        /* Type: ERROR */
+        .type-error {
+            border-left-color: #ff5252;
+            background-color: var(--log-error);
+            border: 1px solid #ff5252;
+        }
+
+        /* Type: SYSTEM */
+        .type-system {
+            border-left-color: #9e9e9e;
+            color: #808080;
+            font-style: italic;
+            font-size: 0.8rem;
+            padding: 4px 10px;
+        }
+
+        /* Type: TOOL */
+        .type-tool {
+            border-left-color: #ff9800;
+            background-color: var(--log-tool);
+            font-family: 'Consolas', monospace;
+        }
+
+        .tool-header {
+            display: flex;
+            justify-content: space-between;
+            color: #ff9800;
+            font-weight: bold;
+        }
+
+        /* Type: BRAIN / TRACE */
+        .type-trace {
+            border-left-color: #9c27b0;
+            background-color: #2d2a2e;
+            border: 1px solid #4a4a4a;
+        }
+
+        .trace-phase {
+            color: #e1bee7;
+            font-weight: bold;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+        }
+
+        /* Type: INTERNAL (Python/Node) */
+        .type-internal {
+            border-left-color: #00bcd4;
+            background-color: #102027;
+            font-family: 'Consolas', monospace;
+            font-size: 0.85rem;
+        }
+
+        /* Helpers */
+        .badge-component {
+            background: #333;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            color: #aaa;
+            margin-left: 8px;
+        }
+
+        pre {
+            color: #d4d4d4;
+            margin: 5px 0 0 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 0.85rem;
+        }
+
+        /* JSON Raw Toggle */
+        .raw-data {
+            display: none;
+            margin-top: 10px;
+            background: #000;
+            padding: 10px;
+            border-radius: 4px;
+            color: #0f0;
+            font-size: 0.75rem;
+        }
+
+        .show-raw-btn {
+            float: right;
+            font-size: 0.7rem;
+            color: #666;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .show-raw-btn:hover {
+            color: #fff;
+        }
+
+        /* Spinner */
+        #loading {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-3 col-lg-2 p-0" id="sidebar">
+                <div class="p-3 border-bottom border-secondary">
+                    <h5 class="m-0 text-white">CHIMERA Logs</h5>
+                    <small class="text-muted">Session History</small>
+                </div>
+                <div id="session-list">
+                    <div class="text-center p-3 text-muted">Loading sessions...</div>
+                </div>
+            </div>
+            <div class="col-md-9 col-lg-10 p-0" id="main-content">
+                <div id="top-bar">
+                    <div>
+                        <strong id="current-session-title">Select a Session</strong>
+                    </div>
+                    <div class="filter-group text-light">
+                        <span class="me-3 text-muted"><small>FILTERS:</small></span>
+                        <input type="checkbox" id="chk-chat" checked onchange="app.filterLogs()">
+                        <label for="chk-chat" class="text-success">Chat</label>
+                        <input type="checkbox" id="chk-brain" checked onchange="app.filterLogs()">
+                        <label for="chk-brain" class="text-info">Brain</label>
+                        <input type="checkbox" id="chk-tool" checked onchange="app.filterLogs()">
+                        <label for="chk-tool" class="text-warning">Tools</label>
+                        <input type="checkbox" id="chk-internal" onchange="app.filterLogs()">
+                        <label for="chk-internal" class="text-primary">Internals</label>
+                        <input type="checkbox" id="chk-system" onchange="app.filterLogs()">
+                        <label for="chk-system" class="text-secondary">System</label>
+                        <input type="checkbox" id="chk-error" checked onchange="app.filterLogs()">
+                        <label for="chk-error" class="text-danger fw-bold">Errors</label>
+                        <span id="filter-actions">
+                            <button type="button" class="filter-action-btn" onclick="app.selectAllFilters()">Select all</button>
+                            <button type="button" class="filter-action-btn" onclick="app.clearAllFilters()">Clear</button>
+                        </span>
+                    </div>
+                </div>
+                <div id="component-bar">
+                    <span class="text-muted"><small>COMPONENTS:</small></span>
+                    <div id="component-list"></div>
+                    <div id="component-actions">
+                        <button type="button" class="component-action-btn" onclick="app.selectAllComponents()">Select all</button>
+                        <button type="button" class="component-action-btn" onclick="app.clearAllComponents()">Clear</button>
+                    </div>
+                    <div id="selected-components">Selected: All</div>
+                </div>
+                <div id="log-stream">
+                    <div class="text-center text-muted mt-5">Select a session from the sidebar to view logs.</div>
+                </div>
+                <div id="loading">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        /**
+         * CHIMERA LOG VIEWER APPLICATION
+         * Logic:
+         * 1. Fetch directory listing from /data/logs/
+         * 2. Parse folder names (log_YYYY...)
+         * 3. Fetch all .jsonl files in selected folder
+         * 4. Merge, Sort by Timestamp, and Render
+         */
+        const app = {
+            // Tanımlı Log Dosyaları ve Tipleri
+            logFiles: [
+                { file: 'chat.jsonl', type: 'chat' },
+                { file: 'errors.jsonl', type: 'error' },
+                { file: 'system.jsonl', type: 'system' },
+                { file: 'trace_brain.jsonl', type: 'trace' },
+                { file: 'tools.jsonl', type: 'tool' },
+                { file: 'internals.jsonl', type: 'internal' },
+                { file: 'internal_python.jsonl', type: 'internal' },
+                { file: 'internal_node.jsonl', type: 'internal' },
+                { file: 'trace_llmbot.jsonl', type: 'trace_llm' }
+            ],
+
+            currentLogs: [],
+            basePath: '/data', // served by Go file server (see cmd/logViewer)
+            _currentSession: null,
+            _pollTimer: null,
+            _fileState: {},
+            _fileLogs: {},
+            _componentSelection: {},
+            _storageKeys: {
+                filters: 'chimera_log_filters',
+                session: 'chimera_log_session',
+                components: 'chimera_log_components'
+            },
+            _pollIntervalMs: 400,
+
+            init: async function () {
+                this.applySavedFilters();
+                this.applySavedComponents();
+                this.fetchSessions();
+            },
+
+            // 1. Klasör Listesini Çek (Go FileServer HTML parse)
+            fetchSessions: async function () {
+                try {
+                    const response = await fetch(`${this.basePath}/`);
+                    const text = await response.text();
+
+                    // HTML içinden href="log_..." olanları ayıkla
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(text, 'text/html');
+                    const links = Array.from(doc.querySelectorAll('a'));
+
+                    const sessions = links
+                        .map(link => link.getAttribute('href').replace(/\/$/, '')) // Sondaki slash'ı sil
+                        .filter(href => href.startsWith('log_'))
+                        .reverse(); // En yeniden en eskiye
+
+                    this.renderSessionList(sessions);
+
+                    // Varsa en sonuncuyu veya kayıtlı olanı otomatik aç
+                    if (sessions.length > 0) {
+                        const savedSession = this.getSavedSession();
+                        if (savedSession && sessions.includes(savedSession)) {
+                            this.loadSession(savedSession);
+                        } else {
+                            this.loadSession(sessions[0]);
+                        }
+                    }
+
+                } catch (e) {
+                    console.error("Session list error:", e);
+                    document.getElementById('session-list').innerHTML = `<div class="p-3 text-danger">Error fetching logs.<br>Make sure <b>cmd/log-viewer</b> is running.</div>`;
+                }
+            },
+
+            renderSessionList: function (sessions) {
+                const container = document.getElementById('session-list');
+                container.innerHTML = '';
+
+                sessions.forEach(session => {
+                    // log_2026_02_08_14_30_00 -> 2026-02-08 14:30:00
+                    const displayDate = session.replace('log_', '').replace(/_/g, '-').replace(/-(\d{2})-(\d{2})-(\d{2})$/, ' $1:$2:$3');
+
+                    const div = document.createElement('div');
+                    div.className = 'session-item';
+                    div.dataset.session = session;
+                    div.innerText = displayDate;
+                    div.onclick = () => {
+                        // Active class yönetimi
+                        document.querySelectorAll('.session-item').forEach(el => el.classList.remove('active'));
+                        div.classList.add('active');
+                        this.loadSession(session);
+                    };
+                    container.appendChild(div);
+                });
+
+                const savedSession = this.getSavedSession();
+                if (savedSession) {
+                    this.setActiveSessionItem(savedSession);
+                } else if (container.firstChild) {
+                    container.firstChild.classList.add('active');
+                }
+            },
+
+            // 2. Seçili Klasördeki Tüm Dosyaları Çek
+            loadSession: async function (folderName) {
+                this._currentSession = folderName;
+                this.saveSession(folderName);
+                this._fileState = {};
+                this._fileLogs = {};
+                this.setActiveSessionItem(folderName);
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('log-stream').innerHTML = '';
+                document.getElementById('current-session-title').innerText = folderName;
+
+                await this.refreshSessionLogs({ force: true });
+                document.getElementById('loading').style.display = 'none';
+
+                this.startPolling();
+            },
+
+            startPolling: function () {
+                if (this._pollTimer) {
+                    clearInterval(this._pollTimer);
+                }
+                this._pollTimer = setInterval(() => {
+                    if (this._currentSession) {
+                        this.refreshSessionLogs({ force: false });
+                    }
+                }, this._pollIntervalMs);
+            },
+
+            refreshSessionLogs: async function ({ force }) {
+                if (!this._currentSession) return;
+
+                const results = await Promise.all(this.logFiles.map(logDef => {
+                    return this.fetchLogFile(this._currentSession, logDef, { force });
+                }));
+
+                let anyChanged = false;
+                results.forEach((result, idx) => {
+                    if (!result) return;
+                    if (result.changed) {
+                        anyChanged = true;
+                        const fileName = this.logFiles[idx].file;
+                        this._fileLogs[fileName] = result.entries;
+                    }
+                });
+
+                if (!anyChanged && !force) return;
+
+                this.currentLogs = Object.values(this._fileLogs).flat();
+
+                this.currentLogs.sort((a, b) => {
+                    const timeA = new Date(a.time || a.timestamp || 0);
+                    const timeB = new Date(b.time || b.timestamp || 0);
+                    return timeA - timeB;
+                });
+
+                this.updateComponentFilters();
+                this.renderLogs();
+            },
+
+            fetchLogFile: async function (folderName, logDef, { force }) {
+                const url = `${this.basePath}/${folderName}/${logDef.file}`;
+                const state = this._fileState[logDef.file] || {};
+
+                try {
+                    if (!force) {
+                        const headRes = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+                        if (headRes.ok) {
+                            const nextEtag = headRes.headers.get('ETag');
+                            const nextLastModified = headRes.headers.get('Last-Modified');
+                            if ((nextEtag && nextEtag === state.etag) || (nextLastModified && nextLastModified === state.lastModified)) {
+                                return { changed: false };
+                            }
+                        }
+                    }
+
+                    const headers = {};
+                    if (!force) {
+                        if (state.lastModified) headers['If-Modified-Since'] = state.lastModified;
+                        if (state.etag) headers['If-None-Match'] = state.etag;
+                    }
+
+                    const res = await fetch(url, { headers, cache: 'no-store' });
+                    if (res.status === 304) {
+                        return { changed: false };
+                    }
+                    if (!res.ok) {
+                        return { changed: false };
+                    }
+
+                    const text = await res.text();
+                    if (!text) {
+                        this._fileState[logDef.file] = {
+                            lastModified: res.headers.get('Last-Modified') || state.lastModified || null,
+                            etag: res.headers.get('ETag') || state.etag || null,
+                            signature: null
+                        };
+                        return { changed: true, entries: [] };
+                    }
+
+                    const signature = this.getTextSignature(text);
+                    if (!force && signature === state.signature) {
+                        return { changed: false };
+                    }
+
+                    this._fileState[logDef.file] = {
+                        lastModified: res.headers.get('Last-Modified') || null,
+                        etag: res.headers.get('ETag') || null,
+                        signature
+                    };
+
+                    const entries = this.parseJsonl(text, logDef);
+                    return { changed: true, entries };
+                } catch (err) {
+                    console.warn(`Failed to fetch ${logDef.file}:`, err);
+                    return { changed: false };
+                }
+            },
+
+            // 4. Logları Ekrana Bas
+            renderLogs: function () {
+                const container = document.getElementById('log-stream');
+                container.innerHTML = '';
+
+                // Filtre durumlarını al
+                const filters = {
+                    chat: document.getElementById('chk-chat').checked,
+                    error: document.getElementById('chk-error').checked,
+                    system: document.getElementById('chk-system').checked,
+                    tool: document.getElementById('chk-tool').checked,
+                    internal: document.getElementById('chk-internal').checked,
+                    brain: document.getElementById('chk-brain').checked
+                };
+
+                this.currentLogs.forEach((log, index) => {
+                    // Filtreleme
+                    if (log._source_type === 'chat' && !filters.chat) return;
+                    if (log._source_type === 'error' && !filters.error) return;
+                    if (log._source_type === 'system' && !filters.system) return;
+                    if (log._source_type === 'tool' && !filters.tool) return;
+                    if (log._source_type === 'internal' && !filters.internal) return;
+                    if ((log._source_type === 'trace' || log._source_type === 'trace_llm') && !filters.brain) return;
+
+                    const componentName = log.component || 'System';
+                    if (!this.isComponentSelected(componentName)) return;
+
+                    const card = document.createElement('div');
+                    card.className = `log-card type-${log._source_type}`;
+
+                    // Zaman Damgası
+                    const timeStr = log.time || log.timestamp || "Unknown Time";
+                    const shortTime = timeStr.split('T')[1] ? timeStr.split('T')[1].substring(0, 12) : timeStr;
+
+                    let htmlContent = `<span class="log-time">${shortTime} <span class="badge-component">${log.component || 'System'}</span></span>`;
+
+                    // İçerik Formatlama
+                    if (log._source_type === 'chat') {
+                        card.classList.add(`sender-${log.sender}`); // User veya Agent için renk
+                        htmlContent += `<strong>${log.sender}:</strong> ${this.escapeHtml(log.msg || log.message_content)}`;
+
+                    } else if (log._source_type === 'error') {
+                        htmlContent += `<strong>🚨 ERROR:</strong> ${this.escapeHtml(log.msg || log.error_msg)}<br>`;
+                        if (log.stack_trace) htmlContent += `<pre class="text-danger small">${log.stack_trace}</pre>`;
+                        if (log.culprit) htmlContent += `<small>Culprit: ${log.culprit} (${log.function})</small>`;
+
+                    } else if (log._source_type === 'tool') {
+                        const duration = log.duration || log.duration_ms || '?';
+                        const successIcon = log.success ? '✅' : '❌';
+                        htmlContent += `<div class="tool-header"><span>🛠️ ${log.tool_name}</span> <span>${duration}ms ${successIcon}</span></div>`;
+                        htmlContent += `<div>Input: <span class="text-muted">${this.truncate(JSON.stringify(log.args), 100)}</span></div>`;
+                        if (log.output) htmlContent += `<div>Output: <span class="text-muted">${this.truncate(log.output || log.output_summary, 150)}</span></div>`;
+
+                    } else if (log._source_type === 'trace') {
+                        htmlContent += `<div class="trace-phase">🧠 ${log.phase || 'THINKING'}</div>`;
+                        htmlContent += `<div>${this.escapeHtml(log.msg || log.thought_process)}</div>`;
+                        if (log.decision) htmlContent += `<div class="mt-1 text-warning">Decision: ${log.decision}</div>`;
+
+                    } else if (log._source_type === 'internal') {
+                        htmlContent += `<strong>[${log.target || log.script || 'Service'}]</strong> ${this.escapeHtml(log.msg || log.log_message)}`;
+                        if (log.cmd) htmlContent += `<br><small class="text-muted">$ ${log.cmd}</small>`;
+
+                    } else {
+                        // Genel/System/Bilinmeyen
+                        htmlContent += `${this.escapeHtml(log.msg || JSON.stringify(log))}`;
+                    }
+
+                    // Raw Data Butonu (güvenli DOM yaratımıyla XSS önleme)
+                    const rawId = `raw-${index}`;
+
+                    card.innerHTML = htmlContent;
+
+                    const rawDiv = document.createElement('div');
+                    rawDiv.id = rawId;
+                    rawDiv.className = 'raw-data';
+                    const pre = document.createElement('pre');
+                    pre.textContent = JSON.stringify(log, null, 2);
+                    rawDiv.appendChild(pre);
+
+                    const showBtn = document.createElement('a');
+                    showBtn.href = '#';
+                    showBtn.className = 'show-raw-btn';
+                    showBtn.textContent = '{JSON}';
+                    showBtn.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        rawDiv.style.display = (rawDiv.style.display === 'block') ? 'none' : 'block';
+                    });
+
+                    card.appendChild(showBtn);
+                    card.appendChild(rawDiv);
+
+                    container.appendChild(card);
+                });
+
+                // Scroll to bottom
+                container.scrollTop = container.scrollHeight;
+            },
+
+            filterLogs: function () {
+                this.saveFilters();
+                this.renderLogs();
+            },
+            selectAllFilters: function () {
+                const ids = ['chk-chat', 'chk-brain', 'chk-tool', 'chk-internal', 'chk-system', 'chk-error'];
+                ids.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.checked = true;
+                });
+                this.saveFilters();
+                this.renderLogs();
+            },
+            clearAllFilters: function () {
+                const ids = ['chk-chat', 'chk-brain', 'chk-tool', 'chk-internal', 'chk-system', 'chk-error'];
+                ids.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.checked = false;
+                });
+                this.saveFilters();
+                this.renderLogs();
+            },
+
+            // Yardımcılar
+            parseJsonl: function (text, logDef) {
+                return text.trim().split('\n').map(line => {
+                    try {
+                        const json = JSON.parse(line);
+                        json._source_type = logDef.type; // Tipini içine göm
+                        json._source_file = logDef.file;
+                        return json;
+                    } catch (e) { return null; }
+                }).filter(item => item !== null);
+            },
+            getTextSignature: function (text) {
+                const trimmed = text.trim();
+                const lastLine = trimmed.split('\n').slice(-1)[0] || '';
+                return `${trimmed.length}:${lastLine.length}`;
+            },
+            updateComponentFilters: function () {
+                const components = new Set();
+                this.currentLogs.forEach(log => {
+                    components.add(log.component || 'System');
+                });
+
+                const container = document.getElementById('component-list');
+                container.innerHTML = '';
+
+                Array.from(components).sort().forEach(name => {
+                    if (!(name in this._componentSelection)) {
+                        this._componentSelection[name] = true;
+                    }
+
+                    const label = document.createElement('label');
+                    label.className = 'component-item';
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.checked = this._componentSelection[name];
+                    checkbox.addEventListener('change', () => {
+                        this._componentSelection[name] = checkbox.checked;
+                        this.saveComponents();
+                        this.updateSelectedComponentsText();
+                        this.renderLogs();
+                    });
+
+                    const text = document.createTextNode(` ${name}`);
+
+                    label.appendChild(checkbox);
+                    label.appendChild(text);
+                    container.appendChild(label);
+                });
+
+                this.updateSelectedComponentsText();
+            },
+            updateSelectedComponentsText: function () {
+                const selected = Object.keys(this._componentSelection)
+                    .filter(name => this._componentSelection[name])
+                    .sort();
+
+                const label = selected.length === Object.keys(this._componentSelection).length
+                    ? 'Selected: All'
+                    : `Selected: ${selected.join(', ') || 'None'}`;
+
+                document.getElementById('selected-components').innerText = label;
+            },
+            selectAllComponents: function () {
+                Object.keys(this._componentSelection).forEach(name => {
+                    this._componentSelection[name] = true;
+                });
+                this.saveComponents();
+                this.updateComponentFilters();
+                this.renderLogs();
+            },
+            clearAllComponents: function () {
+                Object.keys(this._componentSelection).forEach(name => {
+                    this._componentSelection[name] = false;
+                });
+                this.saveComponents();
+                this.updateComponentFilters();
+                this.renderLogs();
+            },
+            isComponentSelected: function (name) {
+                if (!(name in this._componentSelection)) return true;
+                return this._componentSelection[name];
+            },
+            applySavedFilters: function () {
+                try {
+                    const raw = localStorage.getItem(this._storageKeys.filters);
+                    if (!raw) return;
+                    const saved = JSON.parse(raw);
+                    Object.keys(saved).forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el && typeof saved[id] === 'boolean') {
+                            el.checked = saved[id];
+                        }
+                    });
+                } catch (e) {
+                    // ignore storage errors
+                }
+            },
+            saveFilters: function () {
+                try {
+                    const ids = ['chk-chat', 'chk-brain', 'chk-tool', 'chk-internal', 'chk-system', 'chk-error'];
+                    const snapshot = {};
+                    ids.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) snapshot[id] = el.checked;
+                    });
+                    localStorage.setItem(this._storageKeys.filters, JSON.stringify(snapshot));
+                } catch (e) {
+                    // ignore storage errors
+                }
+            },
+            applySavedComponents: function () {
+                try {
+                    const raw = localStorage.getItem(this._storageKeys.components);
+                    if (!raw) return;
+                    const saved = JSON.parse(raw);
+                    if (saved && typeof saved === 'object') {
+                        this._componentSelection = saved;
+                    }
+                } catch (e) {
+                    // ignore storage errors
+                }
+            },
+            saveComponents: function () {
+                try {
+                    localStorage.setItem(this._storageKeys.components, JSON.stringify(this._componentSelection));
+                } catch (e) {
+                    // ignore storage errors
+                }
+            },
+            saveSession: function (sessionName) {
+                try {
+                    localStorage.setItem(this._storageKeys.session, sessionName);
+                } catch (e) {
+                    // ignore storage errors
+                }
+            },
+            setActiveSessionItem: function (sessionName) {
+                document.querySelectorAll('.session-item').forEach(el => {
+                    if (el.dataset.session === sessionName) {
+                        el.classList.add('active');
+                    } else {
+                        el.classList.remove('active');
+                    }
+                });
+            },
+            getSavedSession: function () {
+                try {
+                    return localStorage.getItem(this._storageKeys.session);
+                } catch (e) {
+                    return null;
+                }
+            },
+            escapeHtml: function (unsafe) {
+                if (typeof unsafe !== 'string') return unsafe;
+                return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+            },
+            truncate: function (str, n) {
+                return (str && str.length > n) ? str.substr(0, n - 1) + '&hellip;' : str;
+            }
+        };
+
+        // Uygulamayı Başlat
+        document.addEventListener('DOMContentLoaded', () => {
+            app.init();
+        });
+
+    </script>
+</body>
+
+</html>

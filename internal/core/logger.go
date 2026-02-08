@@ -1,187 +1,448 @@
-// file path: internal/core/logger.go
+// file path : internal/core/logger.go
+/*
+Durum / Senaryo,Fonksiyon Adı,Parametreler (Özet),Hedef Dosya,Örnek Kullanım
+"🧠 Beyin Düşünüyor(Planlama, Karar)",TraceBrain,"Phase, Thought, Args...",trace_brain_user.jsonl,"core.GetLogger().TraceBrain(""Planning"", ""Dosya aranıyor..."", ""file"", ""main.go"")"
+🤖 LLM ile Konuşma(Ham Prompt/Cevap),TraceLLM,"Model, Duration, Prompt, Response",trace_llmbot.jsonl,"core.GetLogger().TraceLLM(""llama3"", 1200, promptStr, responseStr)"
+💬 Sohbet (Chat)(User veya Agent),Chat,"Sender, Msg, IsFinal",chat.jsonl,"core.GetLogger().Chat(""User"", ""React kur"", false)"
+"🛠️ Araç Çalıştı(Cmd, File Ops)",Tool,"Name, Args, Output, Success, Duration",tools.jsonl,"core.GetLogger().Tool(""runCmd"", ""ls -la"", ""total 4..."", true, 45)"
+🚨 HATA (Panic)(Go tarafında),Error,"Msg, Err, Args...",errors.jsonlsystem.jsonl,"core.GetLogger().Error(""Dosya yok"", err, ""path"", path)"
+🐍 Python/Node Çıktısı(Script logları),SubProcess,"Source, Msg, IsError",internal_python.jsonlinternal_node.jsonl,"core.GetLogger().SubProcess(""Python"", ""Analiz bitti"", false)"
+⚙️ Sistem Olayı(Start/Stop),System,"Event, Msg, Args...",system.jsonl,"core.GetLogger().System(""Startup"", ""Server Başladı"", ""port"", 8080)"
+📡 Alt Servis Çağrısı(Delegation),Internal,"Target, Cmd, Success",internals.jsonl,"core.GetLogger().Internal(""PythonService"", ""analyze"", true)"*/
+
 package core
 
 import (
-	"context"
+	"encoding/json"
 	"fmt"
-	"io"
-	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
+	"runtime"
 	"sync"
 	"time"
 )
 
 // -- GLOBAL LOGGER --
-var Log *slog.Logger
+var (
+	Logger *ChimeraLogger
+	once   sync.Once
+)
 
-// -- INIT --
+// -- LOG TİPLERİ (Dosya Adları ile Eşleşir) --
+type LogType string
+
+const (
+	LogSystem       LogType = "system"
+	LogErrors       LogType = "errors"
+	LogChain        LogType = "chain"
+	LogChat         LogType = "chat"
+	LogTraceBrain   LogType = "trace_brain"
+	LogTraceLLM     LogType = "trace_llmbot"
+	LogTools        LogType = "tools"
+	LogInternals    LogType = "internals"
+	LogInternalPy   LogType = "internal_python"
+	LogInternalNode LogType = "internal_node"
+)
+
+type LogSink func(logType LogType, data map[string]any)
+
+var (
+	logSinksMu sync.RWMutex
+	logSinks   []LogSink
+)
+
+func RegisterLogSink(sink LogSink) {
+	if sink == nil {
+		return
+	}
+	logSinksMu.Lock()
+	logSinks = append(logSinks, sink)
+	logSinksMu.Unlock()
+}
+
+// -- INIT (Otomatik) --
 func init() {
-	// İlk açılışta basit başlat
-	Log = slog.New(NewDevHandler(os.Stdout))
+	// empty init for not blocking GetLogger calls before InitLogger is explicitly called.
+	Logger = &ChimeraLogger{
+		consoleOutput: true,
+		initialized:   false,
+	}
 }
 
-// -- YAPILANDIRMA --
-func InitLogger() *slog.Logger {
-	// Dosya Handler'ı (JSON Formatında, "logs" klasörüne)
-	logDir := Config.Paths.LogsDir
-	if logDir == "" {
-		logDir = "./data/logs"
-	}
-	if err := os.MkdirAll(logDir, 0755); err != nil {
-		panic(fmt.Sprintf("Log klasörü oluşturulamadı: %v", err))
-	}
-	now := time.Now()
-	timestamp := now.Format("20060102T150405")
-	filename := fmt.Sprintf("chimera-%s.json", timestamp)
-	fullPath := filepath.Join(logDir, filename)
-
-	file, err := os.OpenFile(fullPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		panic(fmt.Sprintf("Log dosyası açılamadı: %v", err))
-	}
-
-	// Dosya Handler (JSON)
-	jsonHandler := slog.NewJSONHandler(file, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	})
-
-	// Terminal Handler (Renkli / Development)
-	var consoleHandler slog.Handler
-	if Config.App.Environment == "development" {
-		consoleHandler = NewDevHandler(os.Stdout)
-	} else {
-		consoleHandler = slog.NewJSONHandler(os.Stdout, nil)
-	}
-
-	// Çoklayıcı (Tee) İkisini Birleştir (Tee / Fanout)
-	// Gelen logu hem JSON dosyasına hem de Terminale gönderir.
-	multiHandler := &TeeHandler{
-		handlers: []slog.Handler{consoleHandler, jsonHandler},
-	}
-
-	// Global Logger'ı güncelle
-	Log = slog.New(multiHandler)
-	Log.Info("Logger sistemi hazır", "env", Config.App.Environment, "path", fullPath)
-	return Log
+// -- LOGGER YAPISI --
+type ChimeraLogger struct {
+	mu            sync.Mutex
+	logDir        string
+	files         map[LogType]*os.File
+	consoleOutput bool
+	initialized   bool
 }
 
-//  CUSTOM DEV HANDLER
-
-type DevHandler struct {
-	w  io.Writer
-	mu sync.Mutex
-}
-
-func NewDevHandler(w io.Writer) *DevHandler {
-	return &DevHandler{w: w}
-}
-
-func (h *DevHandler) Enabled(_ context.Context, level slog.Level) bool {
-	return level >= slog.LevelDebug // Debug ve üstünü göster
-}
-
-func (h *DevHandler) Handle(_ context.Context, r slog.Record) error {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	// 1. ZAMAN FORMATI (2026/02/04 01:56:13)
-	timeStr := r.Time.Format("2006/01/02 15:04:05")
-
-	// 2. RENKLER VE LEVEL
-	levelStr := r.Level.String()
-	colorCode := "\033[37m" // Beyaz (Default)
-
-	switch r.Level {
-	case slog.LevelDebug:
-		levelStr = "DEBG"
-		colorCode = "\033[36m" // Cyan
-	case slog.LevelInfo:
-		levelStr = "INFO"
-		colorCode = "\033[32m" // Yeşil
-	case slog.LevelWarn:
-		levelStr = "WARN"
-		colorCode = "\033[33m" // Sarı
-	case slog.LevelError:
-		levelStr = "ERRO"
-		colorCode = "\033[31m" // Kırmızı
+// GetLogger: Global logger'ı döndürür. Eğer başlatılmadıysa başlatır.
+func GetLogger() *ChimeraLogger {
+	if !Logger.initialized {
+		InitLogger()
 	}
+	return Logger
+}
 
-	// 3. COMPONENT AYIKLAMA ([WEB   ] Kısmı)
-	// Log atarken: Log.Info("Mesaj", "component", "WEB") dersek buraya düşer.
-	component := "SYS " // Varsayılan
-	var attrs []string
-
-	r.Attrs(func(a slog.Attr) bool {
-		if a.Key == "component" {
-			component = a.Value.String()
-			return true
+// InitLogger: Klasörleri oluşturur ve dosya bağlantılarını açar.
+// sync.Once kullanılarak sadece 1 kere çalışması garanti altına alınır.
+func InitLogger() *ChimeraLogger {
+	once.Do(func() {
+		baseDir := Config.Paths.LogsDir
+		if baseDir == "" {
+			fmt.Printf("\nLog klasoru belirtilmedi. Config dosyasindaki 'paths.logsdir' alanini kontrol edin.\n")
+			os.Exit(1)
 		}
-		// Diğer attribute'ları (key=value) sakla
-		attrs = append(attrs, fmt.Sprintf("%s=%v", a.Key, a.Value.Any()))
-		return true
+		baseDir = filepath.Clean(baseDir)
+		if !filepath.IsAbs(baseDir) {
+			if absDir, err := filepath.Abs(baseDir); err == nil {
+				baseDir = absDir
+			}
+		}
+
+		sessionName := fmt.Sprintf("log_%s", time.Now().Format("2006_01_02_15_04_05"))
+		sessionDir := filepath.Join(baseDir, sessionName)
+
+		if err := os.MkdirAll(sessionDir, 0755); err != nil {
+			fmt.Printf("\n KRİTİK HATA: Log klasörü oluşturulamadı: %v\n", err)
+			os.Exit(1)
+		}
+
+		filesMap := make(map[LogType]*os.File)
+		logTypes := []LogType{
+			LogSystem, LogErrors, LogChain, LogChat,
+			LogTraceBrain, LogTraceLLM, LogTools,
+			LogInternals, LogInternalPy, LogInternalNode,
+		}
+
+		for _, t := range logTypes {
+			// Dosya adı: logs/log_2026.../system.jsonl
+			filename := filepath.Join(sessionDir, string(t)+".jsonl")
+			f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				fmt.Printf("\n[LOGGER] UYARI: Log dosyası açılamadı (%s): %v\n", t, err)
+				continue
+			}
+			filesMap[t] = f
+		}
+
+		Logger = &ChimeraLogger{logDir: sessionDir, files: filesMap, consoleOutput: true, initialized: true}
+
+		Logger.System("Startup", "✅ Logger sistemi başarıyla başlatıldı", map[string]any{
+			"path": sessionDir,
+		})
 	})
+	return Logger
+}
 
-	// Component'i 6 karaktere tamamla (Hizalama için)
-	if len(component) < 6 {
-		component = component + strings.Repeat(" ", 6-len(component))
-	} else if len(component) > 6 {
-		component = component[:6]
-	}
-
-	// 4. ÇIKTIYI BİRLEŞTİR
-	// Format: ZAMAN [COMP  ] MESAJ ATTR
-
-	// Attribute'lar varsa gri ekle
-	attrStr := ""
-	if len(attrs) > 0 {
-		attrStr = fmt.Sprintf(" \033[90m%s\033[0m", strings.Join(attrs, " "))
-	}
-
-	// Ekrana bas
-	fmt.Fprintf(h.w, "%s %s %s %s %s\n",
-		"\033[90m"+timeStr+"\033[0m",                  // Tarih Gri
-		colorCode+levelStr+"\033[0m",                  // Level Renkli
-		fmt.Sprintf("\033[34m[%s]\033[0m", component), // WEB   Mavi
-		r.Message, // Mesaj
-		attrStr,   // key=value (Gri)
+// -- CORE WRITE FUNCTION --
+// Tüm helper fonksiyonlar burayı kullanır.
+func (l *ChimeraLogger) write(logType LogType, data map[string]any) {
+	const (
+		ColorReset  = "\033[0m"
+		ColorRed    = "\033[31m"
+		ColorGreen  = "\033[32m"
+		ColorYellow = "\033[33m"
+		ColorBlue   = "\033[34m"
+		ColorCyan   = "\033[36m"
+		ColorGray   = "\033[90m"
 	)
+	l.mu.Lock()
+	defer l.mu.Unlock()
 
-	return nil
-}
-
-func (h *DevHandler) WithAttrs(attrs []slog.Attr) slog.Handler { return h } // Basitleştirildi
-func (h *DevHandler) WithGroup(name string) slog.Handler       { return h } // Basitleştirildi
-
-// TEE HANDLER (Çoklayıcı)
-
-type TeeHandler struct {
-	handlers []slog.Handler
-}
-
-func (t *TeeHandler) Enabled(ctx context.Context, level slog.Level) bool {
-	for _, h := range t.handlers {
-		if h.Enabled(ctx, level) {
-			return true
+	// Eğer dosya sistemi başlatılmadıysa (InitLogger çağrılmadıysa)
+	if !l.initialized {
+		if l.consoleOutput {
+			fmt.Printf("[PRE-INIT] %v\n", data)
 		}
+		return
 	}
-	return false
-}
 
-func (t *TeeHandler) Handle(ctx context.Context, r slog.Record) error {
-	for _, h := range t.handlers {
-		// Her handler kendi işini yapsın (Biri ekrana, biri dosyaya)
-		_ = h.Handle(ctx, r)
+	// 1. Zorunlu Alanlar
+	if _, ok := data["timestamp"]; !ok {
+		data["timestamp"] = time.Now().Format("2006-01-02T15:04:05.000")
 	}
-	return nil
+	level, _ := data["level"].(string)
+	if level == "" {
+		level = "INFO"
+		data["level"] = level
+	}
+
+	// 2. JSONL Serialization
+	bytes, err := json.Marshal(data)
+	if err != nil {
+		fmt.Printf("Log Marshal Error: %v\n", err)
+		return
+	}
+	line := append(bytes, '\n')
+
+	// 3. Dosyaya Yaz
+	if f, ok := l.files[logType]; ok {
+		if _, err := f.Write(line); err != nil {
+			fmt.Printf("Dosyaya yazılamadı (%s): %v\n", logType, err)
+		}
+	} else {
+		fmt.Printf("MISSING LOG FILE (%s): %s", logType, string(line))
+	}
+
+	l.emitToSinks(logType, data)
+
+	if l.consoleOutput && (logType == LogSystem || logType == LogErrors || logType == LogChat || logType == LogTools) {
+
+		color := ColorGreen
+		if level == "ERROR" {
+			color = ColorRed
+		} else if level == "WARN" {
+			color = ColorYellow
+		} else if logType == LogChat {
+			color = ColorCyan
+		}
+
+		timeStr := data["timestamp"].(string)
+		if len(timeStr) > 11 {
+			timeStr = timeStr[11:19]
+		}
+
+		comp, _ := data["component"].(string)
+		if len(comp) > 7 {
+			comp = comp[:7]
+		} else {
+			comp = fmt.Sprintf("%-7s", comp)
+		}
+
+		msg, _ := data["msg"].(string)
+
+		extra := ""
+		for k, v := range data {
+			if k == "timestamp" || k == "level" || k == "component" || k == "msg" {
+				continue
+			} else if k == "event" {
+				comp += fmt.Sprintf("| %v", v)
+			} else {
+				extra += fmt.Sprintf("%s=%v ", k, v)
+			}
+		}
+
+		fmt.Printf("%s%s%s %s%s%s %s[%s]%s %s %s%s%s\n",
+			ColorGray, timeStr, ColorReset,
+			color, fmt.Sprintf("%-5s", level), ColorReset,
+			ColorBlue, comp, ColorReset,
+			msg,
+			ColorGray, extra, ColorReset,
+		)
+	}
 }
 
-func (t *TeeHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	// Bu kısım biraz complex, şimdilik geçtimm
-	return t
+func (l *ChimeraLogger) emitToSinks(logType LogType, data map[string]any) {
+	logSinksMu.RLock()
+	if len(logSinks) == 0 {
+		logSinksMu.RUnlock()
+		return
+	}
+	sinks := make([]LogSink, len(logSinks))
+	copy(sinks, logSinks)
+	logSinksMu.RUnlock()
+
+	for _, sink := range sinks {
+		payload := cloneMap(data)
+		s := sink
+		go func() {
+			defer func() {
+				_ = recover()
+			}()
+			s(logType, payload)
+		}()
+	}
 }
 
-func (t *TeeHandler) WithGroup(name string) slog.Handler {
-	return t
+// ============================================================================
+// 🛠️ HELPER FONKSİYONLAR (Kullanacağın Metodlar)
+// ============================================================================
+
+// 1. SYSTEM: Altyapı olayları
+func (l *ChimeraLogger) System(event, msg string, args ...any) {
+	data := map[string]any{
+		"component": "System",
+		"event":     event,
+		"msg":       msg,
+	}
+	mergeMeta(data, argsToMap(args...))
+	l.write(LogSystem, data)
+}
+
+// 2. ERROR: Hata yönetimi (Stack trace içerir)
+func (l *ChimeraLogger) Error(msg string, err error, args ...any) {
+	_, file, line, _ := runtime.Caller(1)
+
+	errStr := ""
+	if err != nil {
+		errStr = err.Error()
+	}
+
+	data := map[string]any{
+		"level":     "ERROR",
+		"component": "Brain",
+		"msg":       msg,
+		"error_msg": errStr,
+		"culprit":   fmt.Sprintf("%s:%d", filepath.Base(file), line),
+	}
+	mergeMeta(data, argsToMap(args...))
+
+	l.write(LogErrors, data)
+	
+	l.write(LogSystem, map[string]any{
+		"level":     "ERROR",
+		"event":     "Exception",
+		"msg":       msg,
+		"error_msg": errStr,
+	})
+}
+
+// 3. CHAIN: Akış diyagramı için
+func (l *ChimeraLogger) Chain(from, to, action, status string) {
+	l.write(LogChain, map[string]any{
+		"component": "Flow",
+		"from":      from,
+		"to":        to,
+		"action":    action,
+		"status":    status,
+	})
+}
+
+// 4. CHAT: Kullanıcı ile konuşma
+func (l *ChimeraLogger) Chat(sender, msg string, isFinal bool) {
+	l.write(LogChat, map[string]any{
+		"component": "ChatInterface",
+		"sender":    sender, // "User" veya "Agent"
+		"msg":       msg,
+		"is_final":  isFinal,
+	})
+}
+
+// 5. TRACE BRAIN: Düşünce süreci
+func (l *ChimeraLogger) TraceBrain(phase, thought string, args ...any) {
+	l.write(LogTraceBrain, map[string]any{
+		"component": "Brain",
+		"phase":     phase, // Planning, Reflection, Execution
+		"msg":       thought,
+		"context":   argsToMap(args...), // Array veya Map olabilir
+	})
+}
+
+// 6. TRACE LLM: Ham model verisi
+func (l *ChimeraLogger) TraceLLM(model string, durationMs int64, prompt, response string) {
+	l.write(LogTraceLLM, map[string]any{
+		"component":    "OllamaClient",
+		"model":        model,
+		"duration_ms":  durationMs,
+		"raw_prompt":   prompt,
+		"raw_response": response,
+	})
+}
+
+// 7. TOOLS: Araç kullanımları
+func (l *ChimeraLogger) Tool(name string, args any, success bool, durationMs int64 , output string) {
+	l.write(LogTools, map[string]any{
+		"component":   "ToolExecutor",
+		"tool_name":   name,
+		"args":        args,
+		"success":     success,
+		"duration_ms": durationMs,
+		"output":      output,
+	})
+}
+
+// 8. INTERNALS: Orkestrasyon emirleri
+func (l *ChimeraLogger) Internal(target, cmd string, success bool) {
+	l.write(LogInternals, map[string]any{
+		"component": "Orchestrator",
+		"target":    target, // "Python" veya "Node"
+		"cmd":       cmd,
+		"success":   success,
+	})
+}
+
+// 9. SUB PROCESS: Python ve Node çıktıları
+func (l *ChimeraLogger) SubProcess(source string, msg string, isError bool) {
+	level := "INFO"
+	if isError {
+		level = "ERROR"
+	}
+
+	data := map[string]any{
+		"level":     level,
+		"component": source, // "PythonService" veya "NodeService"
+		"msg":       msg,
+	}
+
+	// Kaynağa göre doğru dosyaya yönlendir
+	if source == "Node" || source == "NodeService" {
+		l.write(LogInternalNode, data)
+	} else {
+		// Varsayılan Python
+		l.write(LogInternalPy, data)
+	}
+}
+
+// -- Close: Uygulama kapanırken dosyaları kapatır --
+func (l *ChimeraLogger) Close() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if !l.initialized {
+		return
+	}
+
+	for _, f := range l.files {
+		f.Close()
+	}
+	l.initialized = false
+}
+
+// -- Helper: Map birleştirme --
+func mergeMeta(dest, src map[string]any) {
+	if src == nil {
+		return
+	}
+	for k, v := range src {
+		dest[k] = v
+	}
+}
+
+func argsToMap(args ...any) map[string]any {
+	if len(args) == 0 {
+		return nil
+	}
+
+	m := make(map[string]any)
+	for i := 0; i < len(args); i += 2 {
+		// Key mutlaka string olmalı
+		key, ok := args[i].(string)
+		if !ok {
+			// Eğer key string değilse atla veya logla
+			continue
+		}
+
+		// Value var mı kontrol et
+		var val any = "MISSING_VALUE"
+		if i+1 < len(args) {
+			val = args[i+1]
+		}
+
+		m[key] = val
+	}
+	return m
+}
+
+func cloneMap(src map[string]any) map[string]any {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[string]any, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
 }

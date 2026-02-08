@@ -94,7 +94,7 @@ Bu kısım, projenin "asistan" (agent) perspektifinden tam bir özetidir: yetene
 - Orkestratör (Brain) — `Go`: `cmd/` ve `internal/` içindeki `agent.Brain` agent'in merkezi; LLM çağrıları, planlama ve karar döngüsü burada yürütülür. (bkz: [internal/agent/brain.go](internal/agent/brain.go))
 - LLM İstemcisi — `internal/clients/ollama`: Ollama ile sohbet/streaming iletişimi sağlar. (bkz: [internal/clients/ollama/client.go](internal/clients/ollama/client.go))
 - Web Arayüzü — `web/static`: canlı gözlem, onay ve etkileşim için split-screen arayüz.
-- WS & API — `cmd/agent-server/main.go` HTTP ve WebSocket giriş noktaları ve uygulama başlatma.
+- WS & API — `cmd/agentServer/main.go` HTTP ve WebSocket giriş noktaları ve uygulama başlatma.
 - Python servisleri: arama, veri işleme ve analiz için ayrılmış mikroservisler.
 - Node.js servisleri: tarayıcı otomasyonu ve JS-uygulama etkileşimleri (puppeteer/playwright).
 
@@ -118,7 +118,7 @@ Bu kısım, projenin "asistan" (agent) perspektifinden tam bir özetidir: yetene
 - API anahtarları ve hassas konfigürasyonlar dosyaya düz metin yazılmamalı; çevre değişkenleri veya şifrelenmiş saklama tercih edilmeli.
 
 **Öncelikli Yapılacaklar (Roadmap)**
-1. İzin & güvenlik katmanının (policy engine) uygulanması. (yüksek öncelik)
+1. Temel `Brain` döngüsünün tamamlanması: planlama, araç çağırma, kritik değerlendirme ve kullanıcıya sunma.
 2. `skills` altyapısının modüler hale getirilmesi — plugin/adapter mimarisi.
 3. Kalıcı hafıza: SQLite şema tasarımı, migration ve CRUD API'leri.
 4. Telegram entegrasyonu: temel POC (güvenli token yönetimi ile).
@@ -131,3 +131,6 @@ Bu kısım, projenin "asistan" (agent) perspektifinden tam bir özetidir: yetene
 
 **Notlar ve İleri Adımlar**
 - Bu belge asistan-odaklı rehber olarak güncellenecektir. İstersen, bu içeriği `docs/DEV.md` altında daha detaylı geliştirici rehberine dönüştürebilirim.
+
+
+

@@ -1,0 +1,3 @@
+filepath:/home/mfmx/Masaüstü/CHIMERA/example.txt
+satır2
+sonsatır

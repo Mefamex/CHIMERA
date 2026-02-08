@@ -2,16 +2,20 @@
 📁 CHIMERA
 ┣━━ .gitignore
 ┣━━ _folder_analysis_results.txt
-┣━━ file-structure.md
-┣━━ file-tree.md
+┣━━ example.txt
 ┣━━ go.mod
 ┣━━ go.sum
 ┣━━ Makefile
 ┣━━ README.md
 ┃
 ┣━━ 📂 cmd
-┃   ┣━━ try.go
-┃   ┗━━ 📂 agent-server
+┃   ┣━━ 📂 agentServer
+┃   ┃   ┗━━ main.go
+┃   ┣━━ 📂 log-gui
+┃   ┃   ┣━━ go.mod
+┃   ┃   ┣━━ go.sum
+┃   ┃   ┗━━ main.go
+┃   ┗━━ 📂 logViewer
 ┃       ┗━━ main.go
 ┃
 ┣━━ 📂 configs
@@ -20,33 +24,40 @@
 ┃       ┣━━ browser_prompt.txt
 ┃       ┣━━ cmd_agent_prompt.txt
 ┃       ┣━━ critic_prompt.txt
+┃       ┣━━ json_formatter.txt
 ┃       ┣━━ planner_prompt.txt
 ┃       ┣━━ researcher_prompt.txt
 ┃       ┣━━ start_prompt.txt
 ┃       ┗━━ todo_to_json.txt
 ┃
 ┣━━ 📂 data
+┃   ┣━━ readme_logs.md
 ┃   ┣━━ system_stacks_info.json
 ┃   ┣━━ 📂 db
 ┃   ┗━━ 📂 logs
-┃       ┗━━ readme-logs.md
+┃
+┣━━ 📂 docs
+┃   ┣━━ 1-Notlarım.md
+┃   ┣━━ 2-Günlük.md
+┃   ┣━━ 3-file-tree.md
+┃   ┗━━ 4-folder_tree.txt
 ┃
 ┣━━ 📂 internal
 ┃   ┣━━ 📂 agent
+┃   ┃   ┣━━ brain.go
+┃   ┃   ┣━━ engine.go
+┃   ┃   ┣━━ errors.go
+┃   ┃   ┣━━ events.go
+┃   ┃   ┣━━ history.go
 ┃   ┃   ┣━━ prompts.go
-┃   ┃   ┗━━ 📂 brain
-┃   ┃       ┣━━ brain.go
-┃   ┃       ┗━━ structs.go
+┃   ┃   ┗━━ structs.go
 ┃   ┣━━ 📂 clients
 ┃   ┃   ┗━━ 📂 ollama
-┃   ┃       ┣━━ chat.go
 ┃   ┃       ┣━━ client.go
-┃   ┃       ┣━━ listModels.go
-┃   ┃       ┣━━ status.go
-┃   ┃       ┣━━ stream.go
-┃   ┃       ┗━━ structs.go
+┃   ┃       ┣━━ examples.go
+┃   ┃       ┗━━ types.go
 ┃   ┣━━ 📂 common
-┃   ┃   ┗━━ noWayHome.go
+┃   ┃   ┗━━ stacksInfo.go
 ┃   ┣━━ 📂 core
 ┃   ┃   ┣━━ config.go
 ┃   ┃   ┣━━ init.go
@@ -55,14 +66,15 @@
 ┃   ┃   ┗━━ types.go
 ┃   ┣━━ 📂 server
 ┃   ┃   ┣━━ hub.go
+┃   ┃   ┣━━ log_sink.go
 ┃   ┃   ┣━━ server.go
 ┃   ┃   ┣━━ structs.go
 ┃   ┃   ┗━━ websocket.go
 ┃   ┗━━ 📂 skills
-┃       ┗━━ 📂 fileSystem
-┃           ┣━━ definitions.json
-┃           ┣━━ read.py
-┃           ┗━━ write.py
+┃       ┣━━ readFile.py
+┃       ┣━━ runCmd.py
+┃       ┣━━ tools.json
+┃       ┗━━ useTool.go
 ┃
 ┣━━ 📂 runtimes
 ┃   ┣━━ 📂 node-v25.4.0
@@ -76,15 +88,18 @@
 ┃
 ┣━━ 📂 scripts
 ┃   ┣━━ build.sh
+┃   ┣━━ custom_tree.go
+┃   ┣━━ custom_tree.py
 ┃   ┣━━ download_third_party.sh
 ┃   ┣━━ file_analyzer.py
-┃   ┣━━ generate_tree.py
-┃   ┗━━ stacks_info.go
+┃   ┗━━ generate_tree.py
 ┗━━ 📂 web
     ┗━━ 📂 static
         ┣━━ app.js
         ┣━━ favicon.png
         ┣━━ index.html
-        ┗━━ 📂 third_party
-            ┗━━ readme.md
+        ┣━━ 📂 third_party
+        ┃   ┗━━ readme.md
+        ┗━━ 📂 viewLogs
+            ┗━━ index.html
 ```

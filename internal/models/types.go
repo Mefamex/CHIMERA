@@ -19,15 +19,19 @@ const (
 	AgentTypeResponseEnd   AgentType = "response_end"
 	AgentTypeThought       AgentType = "thought"
 	AgentTypeTool          AgentType = "tool"
+	AgentTypeToolResult    AgentType = "tool_result"
 	AgentTypeSystem        AgentType = "system"
 	AgentTypeError         AgentType = "error"
+	AgentTypeLog           AgentType = "log"
 )
 
 // Frontend'e giden mesaj (Go -> User)
 type AgentResponse struct {
-	Type     AgentType `json:"type"`      // "response", "thought", "tool", "system", "error"
-	Content  string    `json:"content"`   // Mesaj içeriği
-	ToolName string    `json:"tool_name"` // Eğer tool kullandıysa (örn: "browser")
+	Type     AgentType       `json:"type"`                 // "response", "thought", "tool", "system", "error"
+	Content  string          `json:"content"`              // Mesaj içeriği
+	ToolName string          `json:"tool_name,omitempty"`  // Eğer tool kullandıysa (örn: "browser")
+	LogType  string          `json:"log_type,omitempty"`   // Log stream icin kaynak
+	Data     map[string]any  `json:"data,omitempty"`       // Log payload
 }
 
 // Envelope : hedefli veya broadcast mesajlar için sarmalayıcı

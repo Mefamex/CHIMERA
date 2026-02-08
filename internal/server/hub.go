@@ -12,7 +12,7 @@ func NewHub() *Hub {
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
 		Clients:    make(map[string]*Client),
-		Broadcast:  make(chan models.Envelope),
+		Broadcast:  make(chan models.Envelope, 1024),
 		Send:       make(chan directEnvelope),
 		Stop:       make(chan struct{}),
 	}
@@ -36,7 +36,7 @@ func (h *Hub) Run() {
 	for {
 		select {
 		case <-h.Stop:
-			log.Info("stopping", "component", "HUB")
+			log.System("Hub.Stop", "🛑 Client hub stopping", "component", "HUB")
 			for _, c := range h.Clients {
 				close(c.Send)
 			}
@@ -45,13 +45,13 @@ func (h *Hub) Run() {
 
 		case c := <-h.Register:
 			h.Clients[c.ID] = c
-			log.Info("register", "component", "HUB", "client_id", c.ID, "clients_count", len(h.Clients))
+			log.System("Hub.Registered", "✅ Client registered", "component", "HUB", "client_id", c.ID, "clients_count", len(h.Clients))
 
 		case c := <-h.Unregister:
 			if _, ok := h.Clients[c.ID]; ok {
 				close(c.Send)
 				delete(h.Clients, c.ID)
-				log.Info("unregister", "component", "HUB", "client_id", c.ID, "clients_count", len(h.Clients))
+				log.System("Hub.Unregistered", "❌ Client unregistered", "component", "HUB", "client_id", c.ID, "clients_count", len(h.Clients))
 			}
 
 		case env := <-h.Broadcast:
@@ -59,8 +59,7 @@ func (h *Hub) Run() {
 				select {
 				case cl.Send <- env:
 				default:
-					// kanal doluysa mesaj atla (drop) uyarrrıı
-					log.Info("broadcast drop", "component", "HUB", "client_id", cl.ID, "reason", "channel full")
+					log.System("Hub.BroadcastDrop", "⚠️ Broadcast drop", "component", "HUB", "client_id", cl.ID, "reason", "channel full")
 				}
 			}
 
@@ -70,7 +69,7 @@ func (h *Hub) Run() {
 				case cl.Send <- de.Env:
 					// sent
 				case <-time.After(2 * time.Second):
-					// still blocked, drop
+					log.System("Hub.DirectSendTimeout", "⚠️ Direct send timeout", "component", "HUB", "client_id", cl.ID, "reason", "send channel blocked")
 				}
 			}
 		}

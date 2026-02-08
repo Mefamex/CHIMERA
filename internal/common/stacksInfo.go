@@ -1,17 +1,8 @@
-// file: scripts/stacks_info.go
+// file: internal/common/stacksInfo.go
 /*
- * ℹ️ CHIMERA UTILITY: Tech Stack Inspector
- * FILE: stack_info.go
- * ---------------------------------------------------------
- * Bu script, Chimera'nın çalıştığı ortamın "Röntgenini" çeker.
- *
- * GÖREVLERİ:
- * 1. Runtime Taraması: runtimes/ klasöründeki Python ve Node sürümlerini algılar.
- * 2. Versiyon Kontrolü: Binary dosyalarını (python, node) test eder.
- * 3. Raporlama: Mevcut durumu JSON formatında 'data/logs/' altına kaydeder.
- * 4. Debug: Sistem kurulumunun (venv, node_modules) doğru olup olmadığını doğrular.
- */
-package scripts
+check go, runtimes and versions; output json to file and stdout
+*/
+package common
 
 import (
 	"encoding/json"
@@ -24,14 +15,21 @@ import (
 	"time"
 )
 
-type SystemStatus struct {
+type stacksInfo struct {
+	SystemStatus systemStatus
+	RuntimeInfo  runtimeInfo
+}
+
+var StackInfo = stacksInfo{}
+
+type systemStatus struct {
 	Timestamp string        `json:"timestamp"`
 	HostOS    string        `json:"host_os"`
 	GoVersion string        `json:"go_version"`
-	Runtimes  []RuntimeInfo `json:"runtimes"`
+	Runtimes  []runtimeInfo `json:"runtimes"`
 }
 
-type RuntimeInfo struct {
+type runtimeInfo struct {
 	Type    string `json:"type"`    // python, node
 	Path    string `json:"path"`    // runtimes/python-3.14.2
 	Version string `json:"version"` // 3.14.2 veya v25.4.0
@@ -50,18 +48,18 @@ const (
 )
 
 // --- Ana Fonksiyon ---
-func Stacks_info() (SystemStatus, error) {
+func (s *stacksInfo) Get() (systemStatus, error) {
 	// 1. Taramayı Başlat
 	fmt.Println(colorCyan + "🔍 CHIMERA System Diagnostic Tool Başlatılıyor..." + colorReset)
-	status := performSystemCheck()
+	status := s.performSystemCheck()
 
 	// 2. JSON Çıktısını Oluştur
 	jsonData, err := json.MarshalIndent(status, "", "  ")
 	if err != nil {
 		fmt.Println(colorRed + "JSON Hatası:" + err.Error() + colorReset)
-		return SystemStatus{}, err
+		return systemStatus{}, err
 	}
-
+	s.SystemStatus = status
 	// 3. JSON Dosyasına Kaydet
 	savePath := "data/system_stacks_info.json"
 	// Klasör yoksa oluştur (Garanti olsun)
@@ -81,12 +79,12 @@ func Stacks_info() (SystemStatus, error) {
 
 // --- Mantık Katmanı ---
 
-func performSystemCheck() SystemStatus {
-	status := SystemStatus{
+func (s *stacksInfo) performSystemCheck() systemStatus {
+	status := systemStatus{
 		Timestamp: time.Now().Format(time.RFC3339),
 		HostOS:    runtime.GOOS + "/" + runtime.GOARCH,
 		GoVersion: runtime.Version(),
-		Runtimes:  []RuntimeInfo{},
+		Runtimes:  []runtimeInfo{},
 	}
 
 	// Runtimes klasörünü tara
@@ -104,15 +102,15 @@ func performSystemCheck() SystemStatus {
 		dirName := entry.Name()
 		fullPath := filepath.Join("runtimes", dirName)
 
-		var info RuntimeInfo
+		var info runtimeInfo
 
 		// Klasör ismine göre algılama
 		if strings.HasPrefix(dirName, "python") {
-			info = checkPythonRuntime(fullPath)
+			info = s.CheckPythonRuntime(fullPath)
 		} else if strings.HasPrefix(dirName, "node") {
-			info = checkNodeRuntime(fullPath)
+			info = s.CheckNodeRuntime(fullPath)
 		} else {
-			info = RuntimeInfo{
+			info = runtimeInfo{
 				Type:    "unknown",
 				Path:    fullPath,
 				Status:  "SKIPPED",
@@ -125,18 +123,29 @@ func performSystemCheck() SystemStatus {
 	return status
 }
 
-func checkPythonRuntime(basePath string) RuntimeInfo {
+func (s *stacksInfo) CheckPythonRuntime(pythonBin string) runtimeInfo {
 	// Sanal ortamdaki binary yolu
-	pythonBin := filepath.Join(basePath, ".venv", "bin", "python")
-
-	info := RuntimeInfo{
+	basePath := filepath.Join(pythonBin, "..", "..", "..")
+	info := runtimeInfo{
 		Type: "python",
 		Path: basePath,
 	}
 	// 1. Binary var mı?
 	if _, err := os.Stat(pythonBin); os.IsNotExist(err) {
 		info.Status = "ERROR"
-		info.Message = "venv/bin/python bulunamadı. 'venv' kurulu mu?"
+		info.Message = "venv/bin/python bulunamadı. 'venv' kurulu mu? "
+		// check python*/ or Python*/ folders for version
+		for _, name := range []string{"python", "Python"} {
+			matches, _ := filepath.Glob(filepath.Join(basePath, name+"*"))
+			for _, match := range matches {
+				if fi, err := os.Stat(match); err == nil && fi.IsDir() {
+					info.Message += fmt.Sprintf(" Bulunan klasör: %s. ", match)
+				}
+			}
+			if len(matches) > 0 {
+				info.Message += " (Dikkat: Config dosyasını python runtimes ile uyumlu hale getirin.)"
+			}
+		}
 		return info
 	}
 
@@ -173,12 +182,12 @@ func checkPythonRuntime(basePath string) RuntimeInfo {
 	return info
 }
 
-func checkNodeRuntime(basePath string) RuntimeInfo {
+func (s *stacksInfo) CheckNodeRuntime(basePath string) runtimeInfo {
 	// Node.js modülleri kontrolü
 	packageJson := filepath.Join(basePath, "package.json")
 	nodeModules := filepath.Join(basePath, "node_modules")
 
-	info := RuntimeInfo{
+	info := runtimeInfo{
 		Type: "node",
 		Path: basePath,
 	}

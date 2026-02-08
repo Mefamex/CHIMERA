@@ -2,57 +2,68 @@
 package ollama
 
 import (
+	"CHIMERA/internal/core"
 	"context"
+	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/ollama/ollama/api"
 )
 
-func NewOllamaClient() *OllamaClient {
-	url := strings.TrimRight(strings.TrimSpace(config.LLM.Host), "/")
-	log.Info("Created Ollama Client", "component", "OLLAMA", "host", url)
-	cli := OllamaClient{
-		BaseURL: url,
-		HTTPClient: &http.Client{
-			Timeout: 600 * time.Second,
-		},
+var log = core.GetLogger()
+var config = core.Config
+
+// NewClient: Resmi Ollama istemcisini başlatır ve docker kontrolü yapar.
+func NewClient() (*api.Client, error) {
+	hostUrl := strings.TrimRight(strings.TrimSpace(config.LLM.Host), "/")
+	if hostUrl == "" {
+		hostUrl = "http://127.0.0.1:11434"
 	}
-	res, err := cli.IsOnline(context.Background())
-	if err != nil || !res {
-		log.Error("Failed to connect to Ollama server", "component", "OLLAMA", "error", err)
-		ollamaStart()
+
+	log.System("Startup", "Initializing Ollama Client", "component", "OLLAMA", "host", hostUrl)
+
+	u, err := url.Parse(hostUrl)
+	if err != nil {
+		log.Error("Invalid Ollama URL", fmt.Errorf("%v", err), "component", "OLLAMA")
+		return nil, err
+	}
+
+	client := api.NewClient(u, http.DefaultClient)
+
+	// Bağlantı kontrolü
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if err := client.Heartbeat(ctx); err != nil {
+		log.Error("Ollama is not reachable. Attempting to start Docker...", fmt.Errorf("%v", err), "component", "OLLAMA")
+		startOllamaDocker()
 	} else {
-		log.Info("Connected to Ollama server successfully", "component", "OLLAMA")
+		log.System("Startup", "Connected to Ollama server successfully", "component", "OLLAMA")
 	}
-	return &cli
+
+	return client, nil
 }
 
-func ollamaStart() {
-	log.Info("Trying to activate with Docker", "component", "OLLAMA")
-	// 1. Docker servisini başlat (systemctl start --now docker)
+func startOllamaDocker() {
+	log.System("Action", "Trying to activate with Docker", "component", "OLLAMA")
+
 	cmdStart := exec.Command("systemctl", "start", "--now", "docker")
-
-	cmdStart.Stdout = os.Stdout
-	cmdStart.Stderr = os.Stderr
-
 	if err := cmdStart.Run(); err != nil {
-		log.Info("❌ Docker başlatılamadı", "component", "OLLAMA", "error", err)
-		os.Exit(1)
+		log.Error("❌ Docker service start failed", fmt.Errorf("%v", err), "component", "OLLAMA")
+		return
 	}
 
-	// 2. Ollama konteynerını çalıştır (docker run ollama)
-	log.Info("🐳 Ollama konteyneri çalıştırılıyor...", "component", "OLLAMA")
+	log.System("Action", "🐳 Starting Ollama container...", "component", "OLLAMA")
 	cmdRun := exec.Command("docker", "start", "ollama")
-
-	// Konteynır çıktılarını anlık izlemek için terminale log.Info, log.Error, os.Stdin şeklinde bağlayalım
 	cmdRun.Stdout = os.Stdout
 	cmdRun.Stderr = os.Stderr
-	cmdRun.Stdin = os.Stdin
 
 	if err := cmdRun.Run(); err != nil {
-		log.Info("❌ Docker run hatası", "component", "OLLAMA", "error", err)
-		os.Exit(1)
+		log.Error("❌ Docker container start failed", fmt.Errorf("%v", err), "component", "OLLAMA")
 	}
 }

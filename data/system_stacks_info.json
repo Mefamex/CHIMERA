@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-02-06T21:35:18+03:00",
+  "timestamp": "2026-02-08T16:22:22+03:00",
   "host_os": "linux/amd64",
   "go_version": "go1.25.6 X:nodwarf5",
   "runtimes": [
@@ -12,10 +12,10 @@
     },
     {
       "type": "python",
-      "path": "runtimes/python-3.14.2",
-      "version": "3.14.2",
-      "status": "OK",
-      "message": "Ready. Executable: runtimes/python-3.14.2/.venv/bin/python"
+      "path": "..",
+      "version": " ",
+      "status": "ERROR",
+      "message": "Çalıştırma hatası: fork/exec runtimes/python-3.14.2: permission denied"
     }
   ]
 }

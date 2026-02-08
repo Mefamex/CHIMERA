@@ -14,13 +14,14 @@ class WebSocketClient {
         this.chatHistory = document.getElementById('chat-history');
         this.logsContainer = document.getElementById('logs-container');
 
-        this.activeBotMessages = new Map(); // msgId -> { el, text }
+        this.activeBotMessages = new Map(); // { el, text }
 
         this.LogType = {
             THOUGHT: 'thought',
             TOOL: 'tool',
             ERROR: 'error',
             SYSTEM: 'system',
+            LOG: 'log',
             DEFAULT: 'default',
         };
     }
@@ -31,40 +32,55 @@ class WebSocketClient {
     }
     // Escape HTML to avoid breaking DOM when rendering untrusted content
     escapeHtml(str) {
-        return String(str).replace(/[&<>"'`]/g, function (s) {
-            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' })[s];
+        return String(str).replace(/[&<>"']/g, function (s) {
+            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[s];
         });
     }
 
     // Basic Markdown renderer: handles fenced code blocks, inline code, links, bold, italics
     renderMarkdown(text) {
         if (text === null || text === undefined) return '';
-        // escape first
-        let s = this.escapeHtml(String(text));
+        const raw = String(text).replace(/\r\n/g, "\n");
 
-        // Fenced code blocks ```lang\n...```
-        s = s.replace(/```(\w+)?\n([\s\S]*?)```/g, (m, lang, code) => {
-            const escapedCode = this.escapeHtml(code);
-            const langClass = lang ? ' language-' + lang : '';
-            return `<pre><code class="${langClass}">${escapedCode}</code></pre>`;
+        // 1) Extract fenced code blocks first (so we can escape the rest safely)
+        const codeBlocks = [];
+        let s = raw.replace(/```([a-zA-Z0-9_-]+)?\n([\s\S]*?)```/g, (m, lang, code) => {
+            const idx = codeBlocks.length;
+            codeBlocks.push({ lang: (lang || '').trim(), code: code || '' });
+            return `\u0000CODEBLOCK${idx}\u0000`;
         });
 
-        // Inline code `code`
-        s = s.replace(/`([^`]+)`/g, (m, c) => `<code class="inline-code">${c}</code>`);
+        // 2) Escape HTML in the remaining text
+        s = this.escapeHtml(s);
 
-        // Links [text](url)
+        // 3) Inline code `code` (single-line)
+        s = s.replace(/`([^`\n]+)`/g, (m, c) => `<code class="inline-code">${c}</code>`);
+
+        // 4) Links [text](url) with minimal URL safety
         s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, t, url) => {
-            return `<a href="${url}" target="_blank" rel="noopener noreferrer">${t}</a>`;
+            const u = String(url || '').trim();
+            const safe = (u.startsWith('http://') || u.startsWith('https://') || u.startsWith('mailto:')) ? u : '';
+            if (!safe) return t;
+            const href = this.escapeHtml(safe);
+            return `<a href="${href}" target="_blank" rel="noopener noreferrer">${t}</a>`;
         });
 
-        // Bold **text** or __text__
+        // 5) Bold / Italic
         s = s.replace(/(\*\*|__)(.*?)\1/g, (m, p1, inner) => `<strong>${inner}</strong>`);
+        s = s.replace(/(\*|_)([^\n]*?)\1/g, (m, p1, inner) => `<em>${inner}</em>`);
 
-        // Italic *text* or _text_
-        s = s.replace(/(\*|_)(.*?)\1/g, (m, p1, inner) => `<em>${inner}</em>`);
-
-        // Preserve simple line breaks
+        // 6) Line breaks
         s = s.replace(/\n/g, '<br>');
+
+        // 7) Restore code blocks (escaped inside code)
+        s = s.replace(/\u0000CODEBLOCK(\d+)\u0000/g, (m, i) => {
+            const idx = Number(i);
+            const blk = codeBlocks[idx];
+            if (!blk) return '';
+            const lang = blk.lang ? ` class="language-${this.escapeHtml(blk.lang)}"` : '';
+            const code = this.escapeHtml(blk.code);
+            return `<pre><code${lang}>${code}</code></pre>`;
+        });
         return s;
     }
 
@@ -123,14 +139,28 @@ class WebSocketClient {
         try { if (this.E_userInput.style) this.E_userInput.style.height = ''; } catch (e) { }
     }
 
-    addMessage(text, sender) {
+    addMessage(text, sender, opts = {}) {
         const msgDiv = document.createElement('div');
-        msgDiv.classList.add('message', sender);
+        msgDiv.classList.add('d-flex', 'align-items-start', 'mb-3');
 
-        const icon = sender === 'bot' ? '🤖' : '👤';
-        const prefix = sender === 'bot' ? 'CHIMERA-AI :' : 'USER :';
+        const icon = opts.icon || (sender === 'bot' ? '🤖' : '👤');
+        const prefix = opts.prefix || (sender === 'bot' ? 'CHIMERA-AI :' : 'USER :');
+        const bubbleClass = opts.bubbleClass || (sender === 'user' ? 'bg-body-tertiary border border-primary' : 'bg-dark');
+        const prefixClass = opts.prefixClass || (sender === 'user' ? 'text-light opacity-75' : 'text-light opacity-75');
 
-        msgDiv.innerHTML = `  <div class="avatar">${icon}</div> <div class="text"> <span class="copy-prefix">${prefix}</span> <span class="copy-content">${this.formatText(text)}</span> </div> `;
+        const isRight = sender === 'user' || opts.align === 'right';
+        if (isRight) msgDiv.classList.add('justify-content-end');
+
+        const bubbleHtml = `
+            <div class="text small text-wrap chat-bubble ${bubbleClass} p-2 rounded">
+                <span class="copy-prefix me-2 fw-semibold ${prefixClass}">${this.escapeHtml(prefix)}</span>
+                <span class="copy-content">${this.formatText(text)}</span>
+            </div>
+        `;
+
+        const avatarHtml = `<div class="avatar ${isRight ? 'ms-2' : 'me-2'}">${icon}</div>`;
+
+        msgDiv.innerHTML = isRight ? `${bubbleHtml}${avatarHtml}` : `${avatarHtml}${bubbleHtml}`;
 
         if (!this.chatHistory) this.chatHistory = document.getElementById('chat-history');
         if (this.chatHistory) this.chatHistory.appendChild(msgDiv);
@@ -139,12 +169,12 @@ class WebSocketClient {
 
     addBotMessagePlaceholder(msgId) {
         const msgDiv = document.createElement('div');
-        msgDiv.classList.add('message', 'bot');
+        msgDiv.classList.add('d-flex', 'align-items-start', 'mb-3');
         msgDiv.dataset.msgId = msgId || '';
         msgDiv.innerHTML = `
-            <div class="avatar">🤖</div>
-            <div class="text">
-                <span class="copy-prefix">CHIMERA-AI :</span>
+            <div class="avatar me-2">🤖</div>
+            <div class="text small text-wrap chat-bubble bg-dark p-2 rounded">
+                <span class="copy-prefix me-2 fw-semibold text-light opacity-75">CHIMERA-AI :</span>
                 <span class="copy-content"></span>
             </div>
         `;
@@ -170,14 +200,36 @@ class WebSocketClient {
         this.scrollToBottom(this.chatHistory);
     }
 
+    formatToolResultForChat(toolName, content) {
+        const s = String(content ?? '');
+        if (!s.trim()) return '';
+        if (s.includes('```')) return s;
+        const t = s.trim();
+        const looksJson = (t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'));
+        const lang = looksJson ? 'json' : '';
+        return `\n\n\u0060\u0060\u0060${lang}\n${s}\n\u0060\u0060\u0060`;
+    }
+
+    formatLogPayload(payload) {
+        if (payload === null || payload === undefined) return '';
+        if (typeof payload === 'string') return payload;
+        try {
+            let json = JSON.stringify(payload, (key, value) => key === 'timestamp' ? undefined : value, 2);
+            json = json.replace(/^\{\n/, '{ ').replace(/\n\}$/, ' }');
+            json = json.replace(/^\[\n/, '[ ').replace(/\n\]$/, ' ]');
+            return `\u0060\u0060\u0060json\n${json}\n\u0060\u0060\u0060`;
+        } catch (e) {
+            return String(payload);
+        }
+    }
+
     addLog(label, text, type) {
         // type : this.logType : 'thought', 'tool', 'error', 'system'
-
         const logDiv = document.createElement('div');
         const safeType = Object.values(this.LogType).includes(type) ? type : 'default';
         logDiv.classList.add('log-entry', safeType);
 
-        const time = new Date().toLocaleTimeString('tr-TR', { hour12: false });
+        const time = new Date().toLocaleTimeString('tr-TR', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
         const safeLabel = this.escapeHtml(label);
         const safeText = this.formatText(text);
@@ -221,16 +273,58 @@ class WebSocketClient {
             }
             case this.LogType.THOUGHT:
                 this.addLog(this.LogType.THOUGHT.toUpperCase(), String(data.content), this.LogType.THOUGHT);
+                this.addMessage(String(data.content), 'bot', {
+                    prefix: 'THOUGHT',
+                    prefixClass: 'text-warning',
+                    icon: '🤖',
+                    bubbleClass: 'bg-warning bg-opacity-25 border border-warning'
+                });
                 break;
             case this.LogType.TOOL:
                 this.addLog(`${this.LogType.TOOL.toUpperCase()}: ${data.tool_name}`, data.content, this.LogType.TOOL);
+                this.addMessage(String(data.content), 'bot', {
+                    prefix: `TOOL (${data.tool_name || 'unknown'})`,
+                    prefixClass: 'text-info',
+                    icon: '🤖',
+                    bubbleClass: 'bg-info bg-opacity-25 border border-info'
+                });
                 break;
+            case 'tool_result': {
+                const label = `TOOL_RESULT: ${data.tool_name || 'unknown'}`;
+                this.addLog(label, data.content, this.LogType.TOOL);
+                const body = this.formatToolResultForChat(data.tool_name, data.content);
+                this.addMessage(body, 'bot', {
+                    prefix: `TOOL RESULT (${data.tool_name || 'unknown'})`,
+                    prefixClass: 'text-primary',
+                    icon: '🤖',
+                    bubbleClass: 'bg-primary bg-opacity-25 border border-primary'
+                });
+                break;
+            }
             case this.LogType.ERROR:
                 this.addLog(this.LogType.ERROR.toUpperCase(), data.content, this.LogType.ERROR);
+                this.addMessage(String(data.content), 'bot', {
+                    prefix: 'ERROR',
+                    prefixClass: 'text-danger',
+                    icon: '🤖',
+                    bubbleClass: 'bg-danger bg-opacity-25 border border-danger'
+                });
                 break;
             case this.LogType.SYSTEM:
                 this.addLog(this.LogType.SYSTEM.toUpperCase(), data.content, this.LogType.SYSTEM);
+                this.addMessage(String(data.content), 'bot', {
+                    prefix: 'SYSTEM',
+                    prefixClass: 'text-secondary',
+                    icon: '🤖',
+                    bubbleClass: 'bg-secondary bg-opacity-25 border border-secondary'
+                });
                 break;
+            case this.LogType.LOG: {
+                const label = `LOG: ${data.log_type || 'unknown'}`;
+                const body = this.formatLogPayload(data.data ?? data.content ?? data);
+                this.addLog(label, body, this.LogType.LOG);
+                break;
+            }
             default:
                 this.addLog("UNKNOWN", `Bilinmeyen mesaj türü: ${JSON.stringify(data.type)}`, this.LogType.ERROR);
         }
@@ -238,6 +332,22 @@ class WebSocketClient {
 }
 
 const wsClient = new WebSocketClient(`ws://${window.location.host}/ws`);
+
+async function applyModelPlaceholder() {
+    const input = document.getElementById('user-input');
+    if (!input) return false;
+    try {
+        const res = await fetch('/api/model');
+        if (!res.ok) return false;
+        const data = await res.json();
+        const model = (data && data.model) ? String(data.model).trim() : '';
+        if (!model) return false;
+        input.placeholder = `Bir görev girin... (Model: ${model})`;
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
 
 // Stacks bilgisini al ve logs'a yaz
 async function fetchAndLogStacksInfo() {
@@ -249,7 +359,7 @@ async function fetchAndLogStacksInfo() {
                 if (val && typeof val === 'object') {
                     wsClient.addLog("STACKS", `${indent}${key}:`, wsClient.LogType.TOOL); await sleep(50);
                     await logNested(val, indent + "\u00A0");
-                } else { wsClient.addLog("STACKS", `${indent}${key}: ${val}`, wsClient.LogType.TOOL); await sleep(100); }
+                } else { wsClient.addLog("STACKS", `${indent}${key}: ${val}`, wsClient.LogType.TOOL); await sleep(50); }
             }
         };
         await logNested(data);
@@ -431,15 +541,17 @@ async function overrideConsole() {
 
 
 document.addEventListener('DOMContentLoaded', async () => {
-    await sleep(100);
+    await sleep(50);
+
+    await applyModelPlaceholder();
 
     if (await overrideConsole()) wsClient.addLog("WEB", "Console overridden for logging.", wsClient.LogType.TOOL);
     else wsClient.addLog("WEB", "Failed to override console.", wsClient.LogType.ERROR);
-    await sleep(100);
+    await sleep(50);
 
     if (await fetchAndLogStacksInfo()) wsClient.addLog("WEB", "Stacks info fetched.", wsClient.LogType.TOOL);
     else wsClient.addLog("WEB", "Failed to fetch stacks info.", wsClient.LogType.ERROR);
-    await sleep(200);
+    await sleep(50);
 
     await (() => {
         if (initSplitter()) wsClient.addLog("WEB", "1/3 Splitter initialized.", wsClient.LogType.TOOL);
@@ -452,7 +564,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         else wsClient.addLog("WEB", "Failed to initialize event listeners.", wsClient.LogType.ERROR);
 
     })();
-    await sleep(100);
+    await sleep(50);
 
     wsClient.addLog("WEB", "UPLINK HAZIR. CHIMERA-AI ile etkileşime geçebilirsiniz.", wsClient.LogType.TOOL);
 });

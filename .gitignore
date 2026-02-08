@@ -9,7 +9,7 @@
 # Derlenmiş binary dosyaları
 /bin/
 /dist/
-agent-server.exe
+agentServer.exe
 # Test çıktıları
 *.test
 *.out
@@ -30,7 +30,7 @@ node_modules/
 data/db/*.db
 data/db/*.sqlite
 # Log dosyaları
-data/logs/*.json
+data/logs/*
 # İndirilen dosyalar
 data/downloads/*
 
@@ -50,7 +50,7 @@ data/downloads/*
 core
 !internal/**/core
 
-# --- 9. THIRD_PARTY / HARICI KABUL ÖNERİSİ ---
+# --- 9. third_party / HARICI KABUL ÖNERİSİ ---
 
 **/third_party/*
 !/**/third_party/readme.md

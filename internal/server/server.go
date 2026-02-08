@@ -4,10 +4,12 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
-	"CHIMERA/scripts"
+	"CHIMERA/internal/common"
 
+	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
 )
@@ -28,26 +30,28 @@ func Start() {
 	addr := fmt.Sprintf("%s:%d", config.Server.Host, config.Server.Port)
 	go func() {
 		if err := App.Listen(addr); err != nil {
-			log.Error("Sunucu başlatılamadı veya durdu!", "error", err, "component", "WEB")
+			log.Error("Sunucu başlatılamadı veya durdu!", err, "component", "WEB")
 			// Burada os.Exit yapmıyoruz, sadece hatayı logluyoruz.
 		}
 	}()
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	// Test the server is up
 	resp, err := http.Get(fmt.Sprintf("http://%s/ping", addr))
 	if err != nil {
-		log.Error("!!! Web server is not responding!", "error", err, "component", "WEB")
-	}
-	if resp == nil || resp.StatusCode != 200 {
-		log.Error("!!! Web server returned non-200 status, server is not healthy", "status_code", resp.StatusCode, "component", "WEB")
+		log.Error("Web server is not responding!", err, "component", "WEB")
 	} else {
-		log.Info("🌍 Web server is up", "address", "http://"+addr, "component", "WEB")
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			log.Error("Web server returned non-200 status, server is not healthy", fmt.Errorf("status code: %d", resp.StatusCode), "component", "WEB")
+		} else {
+			log.System("STARTUP", "🌍 Web server is up", "address", "http://"+addr, "component", "WEB")
+		}
 	}
 	StartTime = time.Now()
 }
 
 func Shutdown() error {
-	fmt.Println("🛑 Sunucu kapatılıyor...")
+	log.System("SHUTDOWN", "🛑 Sunucu kapatılıyor...", "component", "HUB")
 	HubInstance.Shutdown()
 	return App.Shutdown()
 }
@@ -68,9 +72,9 @@ func setupFiberApp() {
 		status := c.Response().StatusCode()
 		msg := fmt.Sprintf("%s %s -> %d", c.Method(), c.Path(), status)
 		if status >= 400 {
-			log.Error(msg, "component", "WEB", "latency", latency.String(), "ip", c.IP())
-		} else {
-			log.Info(msg, "component", "WEB", "latency", latency.String())
+			log.Error(msg, fmt.Errorf("status code: %d", status), "component", "WEB", "latency", latency.String(), "ip", c.IP())
+		} else if !strings.Contains(msg, " /data/log_2026") {
+			log.System("REQUEST", msg, "component", "WEB", "latency", latency.String())
 		}
 		return err
 	})
@@ -82,7 +86,7 @@ func setupFiberApp() {
 			return c.Next()
 		})
 	}
-	log.Info("Fiber uygulaması başlatıldı", "component", "WEB")
+	log.System("Startup", "Fiber uygulaması başlatıldı", "component", "WEB")
 }
 
 func setupRoutes() {
@@ -91,15 +95,28 @@ func setupRoutes() {
 		return c.JSON(fiber.Map{"status": "ok", "uptime": fmt.Sprintf("%.2fs", time.Since(StartTime).Seconds())})
 	})
 
+	// Serve log files for the frontend at /data/* using net/http FileServer so
+	// directory listing HTML is returned (same behavior as cmd/logViewer/main.go).
+	logDir := resolveLogDir()
+	fs := http.StripPrefix("/data/", http.FileServer(http.Dir(logDir)))
+	App.Use("/data", adaptor.HTTPHandler(fs))
+
 	App.Get("/api/stacks", func(c *fiber.Ctx) error {
-		status, err := scripts.Stacks_info()
+		status, err := common.StackInfo.Get()
 		if err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 		}
 		return c.JSON(status)
 	})
-	log.Info("Stackts API Yolu Ayarlandı", "component", "WEB")
-	time.Sleep(100 * time.Millisecond)
+
+	App.Get("/api/model", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"provider": config.LLM.Provider,
+			"model":    config.LLM.ModelMain,
+		})
+	})
+	log.System("Startup", "Stackts API Yolu Ayarlandı", "component", "WEB")
+	time.Sleep(10 * time.Millisecond)
 
 	App.Use("/ws", func(c *fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) {
@@ -109,6 +126,13 @@ func setupRoutes() {
 		return fiber.ErrUpgradeRequired
 	})
 	App.Get("/ws", websocket.New(NewWebSocketHandler()))
-	log.Info("WebSocket Yolu Ayarlandı", "component", "WEB")
-	time.Sleep(100 * time.Millisecond)
+	log.System("Startup", "WebSocket Yolu Ayarlandı", "component", "WEB")
+	time.Sleep(50 * time.Millisecond)
+}
+
+func resolveLogDir() string {
+	if config != nil && config.Paths.LogsDir != "" {
+		return config.Paths.LogsDir
+	}
+	return "./data/logs"
 }

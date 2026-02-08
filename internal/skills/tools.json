@@ -1,10 +1,19 @@
 {
     "readfile": {
         "Category": "fileSystem",
-        "Path": "./internal/skills/readFile.py",
-        "Desc": "Read the contents of a file.",
+        "Path": "internal/skills/readFile.py",
+        "Desc": "Read the contents of a text file.",
         "Params": ["filePath"],
-        "Returns": {"path": "str", "error": "str", "total_lines": "int", "ended_line": "int", "lines": "[string]"},
-        "Example": "readFile('/path/to/file.txt')"
+        "Returns": {"path": "str", "error": "str", "total_lines": "int", "lines": "[string]"},
+        "Example": "readFile('data/logs/test.log')"
+    },
+    "runcmd": {
+        "Category": "system",
+        "Path": "internal/skills/runCmd.py",
+        "Desc": "Run a shell command (bash) and return stdout/stderr/exit code.",
+        "Params": ["command"],
+        "TimeoutSec": 120,
+        "Returns": {"command": "str", "stdout": "str", "stderr": "str", "exit_code": "int", "duration_ms": "int", "error": "str"},
+        "Example": "runcmd('ls -la')"
     }
 }

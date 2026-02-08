@@ -15,7 +15,7 @@ var App *fiber.App
 var StartTime time.Time
 
 // server-package globals
-var log = core.Log
+var log = core.GetLogger()
 var config = core.Config
 
 // Client temsilcisi: tek bir websocket bağlantısının gönderim kanalı

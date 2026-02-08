@@ -10,13 +10,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
 
 var toolsCache = make(map[string]Tool)
 var toolsMu sync.RWMutex
-var log = core.Log
 
 type Tool struct {
 	Name        string            `json:"-"`
@@ -24,25 +24,17 @@ type Tool struct {
 	ScriptPath  string            `json:"Path"`
 	Description string            `json:"Desc"`
 	Parameters  []string          `json:"Params"`
+	TimeoutSec  int               `json:"TimeoutSec,omitempty"`
 	Returns     map[string]string `json:"Returns"`
 }
 type ToolResult struct {
 	ToolName string                 `json:"tool_name"`
 	Data     map[string]interface{} `json:"data"`      // Python'dan gelen asıl JSON verisi
-	Stdout   string                 `json:"stdout"`    // Ham standart çıktı (Debug için)
-	Stderr   string                 `json:"stderr"`    // Hata logları (Python traceback vb.)
+	Stdout   string                 `json:"stdout"`    // Ham standart çıktı
+	Stderr   string                 `json:"stderr"`    // Hata logları
 	Duration time.Duration          `json:"duration"`  // Çalışma süresi
 	ExitCode int                    `json:"exit_code"` // 0: Başarılı, Diğerleri: Hata
-	Error    error                  `json:"-"`         // Go tarafındaki çalıştırma hatası (Timeout vb.)
-}
-
-func init() {
-	if err := ReloadTools(); err != nil {
-		fmt.Printf("WARNING: Initial skills load failed: %v\n", err)
-		if log != nil {
-			log.Error("Initial skills load failed:", "error", err, "component", "skills")
-		}
-	}
+	Error    error                  `json:"-"`         // Go tarafındaki çalıştırma hatası
 }
 
 func GetTools() map[string]Tool {
@@ -58,34 +50,45 @@ func GetTool(name string) (Tool, bool) {
 	return tool, exists
 }
 
+// ReloadTools: tools.json dosyasını okur ve belleğe yükler.
 func ReloadTools() error {
-	file, err := os.Open(filepath.Join("internal", "skills", "tools.json"))
+	// tools.json yolunu mutlak yola çevirmeye çalışalım.
+	// Varsayım: Program proje kök dizininden çalışıyor.
+	basePath := "internal/skills/tools.json"
+
+	absPath, err := filepath.Abs(basePath)
 	if err != nil {
-		return fmt.Errorf("failed to open tools.json: %w", err)
+		return fmt.Errorf("failed to resolve absolute path for tools.json: %w", err)
+	}
+
+	file, err := os.Open(absPath)
+	if err != nil {
+		return fmt.Errorf("failed to open tools.json at %s: %w", absPath, err)
 	}
 	defer file.Close()
+
 	var rawMap map[string]Tool
 	if err := json.NewDecoder(file).Decode(&rawMap); err != nil {
 		return fmt.Errorf("failed to decode tools.json: %w", err)
 	}
+
 	newTools := make(map[string]Tool, len(rawMap))
 	for key, tool := range rawMap {
 		tool.Name = key
 		newTools[key] = tool
 	}
+
 	toolsMu.Lock()
 	toolsCache = newTools
 	toolsMu.Unlock()
-	if log != nil {
-		log.Info("Skills reloaded successfully:", "total_loaded", len(newTools), "component", "skills")
-	}
+
 	return nil
 }
 
 // UseTool: Aracı çalıştırır ve detaylı bir rapor döner.
-// Hata olsa bile Result nesnesi dönmeli ki loglara bakabilelim.
 func UseTool(toolName string, args ...string) *ToolResult {
 	start := time.Now()
+	log := core.GetLogger()
 
 	result := &ToolResult{
 		ToolName: toolName,
@@ -101,11 +104,15 @@ func UseTool(toolName string, args ...string) *ToolResult {
 
 	// 2. Parametre Kontrolü
 	if len(args) != len(tool.Parameters) {
-		result.Error = fmt.Errorf("parameter mismatch: expected %d, got %d", len(tool.Parameters), len(args))
+		result.Error = fmt.Errorf("parameter mismatch: expected %d (%v), got %d", len(tool.Parameters), tool.Parameters, len(args))
 		return result
 	}
 
 	// 3. Yolları Çözümle
+	if core.Config.Runtimes.Python == "" {
+		result.Error = fmt.Errorf("python runtime path is not configured")
+		return result
+	}
 	pythonExec, err := filepath.Abs(core.Config.Runtimes.Python)
 	if err != nil {
 		result.Error = fmt.Errorf("invalid python path: %w", err)
@@ -118,24 +125,28 @@ func UseTool(toolName string, args ...string) *ToolResult {
 		return result
 	}
 
-	// 4. Zaman Aşımı (Timeout) - 10 Saniye
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// 4. Zaman Aşımı (Timeout)
+	// Varsayılan 30 saniye; tool JSON içinde TimeoutSec verilirse onu kullan.
+	timeout := 30 * time.Second
+	if tool.TimeoutSec > 0 {
+		timeout = time.Duration(tool.TimeoutSec) * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	// 5. Komut Hazırlığı
 	cmdArgs := append([]string{scriptPath}, args...)
 	cmd := exec.CommandContext(ctx, pythonExec, cmdArgs...)
 
-	// Çıktıları yakalamak için Buffer
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
 
 	// 6. ÇALIŞTIR
-	log.Info("Using Tool", "toolName", toolName, "args", args, "component", "skills")
+	log.Tool(toolName, strings.Join(args, " "), false, 0, "calling")
+
 	err = cmd.Run()
 
-	// Süreyi kaydet
 	result.Duration = time.Since(start)
 	result.Stdout = stdoutBuf.String()
 	result.Stderr = stderrBuf.String()
@@ -143,31 +154,58 @@ func UseTool(toolName string, args ...string) *ToolResult {
 
 	// 7. Hata Analizi
 	if err != nil {
-		// Timeout mu?
 		if ctx.Err() == context.DeadlineExceeded {
-			result.Error = fmt.Errorf("execution timed out (10s)")
-			return result
+			result.Error = fmt.Errorf("execution timed out (30s)")
+		} else {
+			result.Error = fmt.Errorf("execution failed with code %d: %s", result.ExitCode, result.Stderr)
 		}
-
-		// Script hata koduyla mı çıktı? (Exit Code != 0)
-		result.Error = fmt.Errorf("execution failed with code %d", result.ExitCode)
-		return result // Çıktıyı parse etmeye çalışmıyoruz çünkü patladı.
+		// Hata olsa bile JSON dönmüş olabilir (Python tarafında handle edildiyse)
+		// O yüzden aşağıda unmarshal deniyoruz.
 	}
 
-	// 8. JSON Parse İşlemi (Sadece exit code 0 ise)
-	if err := json.Unmarshal(stdoutBuf.Bytes(), &result.Data); err != nil {
-		// Python başarılı bitmiş ama JSON basmamış (Örn: Sadece print("bitti") demiş)
-		result.Error = fmt.Errorf("invalid json output: %w", err)
-		return result
+	// 8. JSON Parse İşlemi
+	// Eğer stdout boşsa ve hata varsa, zaten yukarıda error set ettik.
+	if stdoutBuf.Len() > 0 {
+		if jsonErr := json.Unmarshal(stdoutBuf.Bytes(), &result.Data); jsonErr != nil {
+			// Sadece eğer execution hatası yoksa bunu hata sayalım.
+			// Execution hatası varsa zaten asıl sorun odur.
+			if result.Error == nil {
+				result.Error = fmt.Errorf("invalid json output from tool: %w | Raw: %s", jsonErr, stdoutBuf.String())
+			}
+		}
+	} else if result.Error == nil {
+		// Başarılı (exit 0) ama boş çıktı?
+		result.Error = fmt.Errorf("tool returned empty output")
 	}
 
-	// 9. Python içinden gelen mantıksal hataları kontrol et ("error" key'i var mı?)
+	// 9. Mantıksal Hata Kontrolü ("error" key'i)
 	if errStr, ok := result.Data["error"].(string); ok && errStr != "" {
-		// Bu bir Go hatası değil, Tool'un kendi mantık hatasıdır (Örn: Dosya yok)
-		// İsteğe bağlı olarak result.Error set edilebilir veya Data içinde bırakılabilir.
-		// Biz loglara düşmesi için buraya not düşelim.
-		log.Error("Tool logic error", "error", errStr, "component", "skills")
+		if log != nil {
+			log.Error("Tool returned logic error", fmt.Errorf("%s", errStr), "tool", toolName, "component", "skills")
+		}
+		// Go hatası olarak set etmiyoruz, çünkü tool başarıyla çalıştı ve hatayı raporladı.
+		// Ancak çağırana kolaylık olsun diye bir flag eklenebilir.
+	}
+	log.Tool(toolName, args, result.Error == nil, result.Duration.Milliseconds(), result.Stdout)
+	return result
+}
+
+func GetToolsPrompt() string {
+	toolsMu.RLock()
+	defer toolsMu.RUnlock()
+
+	if len(toolsCache) == 0 {
+		return "No tools available. (Check tools.json)"
 	}
 
-	return result
+	var builder bytes.Buffer
+	builder.WriteString("Mevcut Araçlar (Tools):\n")
+
+	for _, tool := range toolsCache {
+		paramsJSON, _ := json.Marshal(tool.Parameters)
+		line := fmt.Sprintf("- %s (Params: %s): %s\n", tool.Name, paramsJSON, tool.Description)
+		builder.WriteString(line)
+	}
+
+	return builder.String()
 }

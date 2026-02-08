@@ -5,7 +5,7 @@
 app:
   name: "Chimera Agent"
   version: "1.0.0"
-  date: "2025-01-31"
+  #  date: "2025-01-31"
   environment: "development"
   debug: true
 
@@ -23,12 +23,14 @@ runtimes:
 llm:
   provider: "ollama"
   host: "http://localhost:11434"
-  model_main: "qwen2.5-coder:7b"
-  model_coder: "qwen2.5-coder:7b"
+  model_main: "qwen3-vl:8b"
+  formatter_model: "qwen3-vl:8b"
   temperature: 0.7
-  context_window: 8192
+  formatter_temperature: 0.2
   format: "json"
+  formatter_format: "json"
   max_conversation_messages: 25
+#  context_window: 8192
 
 # services:
 #   python_analyzer:
@@ -39,10 +41,10 @@ llm:
 #     url: "http://localhost:3001"
 #     timeout: 45s
 
-telegram:
-  enabled: true
-  token: "ENV_TELEGRAM_TOKEN"
-  allowed_users: [123456789]
+# telegram:
+#   enabled: true
+#   token: "ENV_TELEGRAM_TOKEN"
+#   allowed_users: [123456789]
 
 paths:
   prompts_dir: "./configs/prompts"

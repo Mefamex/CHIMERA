@@ -1,0 +1,235 @@
+CHIMERA
+  ├─ .git/
+  ├─ cmd/
+  │  ├─ agentServer/
+  │  │  └─ main.go
+  │  │
+  │  ├─ log-gui/
+  │  │  ├─ go.modfile
+  │  │  ├─ go.sumfile
+  │  │  └─ main.go
+  │  │
+  │  └─ logViewer/
+  │    └─ main.go
+  │
+  ├─ configs/
+  │  ├─ prompts/
+  │  │  ├─ browser_prompt.txtfile
+  │  │  ├─ cmd_agent_prompt.txtfile
+  │  │  ├─ critic_prompt.txtfile
+  │  │  ├─ json_formatter.txtfile
+  │  │  ├─ planner_prompt.txtfile
+  │  │  ├─ researcher_prompt.txtfile
+  │  │  ├─ start_prompt.txtfile
+  │  │  └─ todo_to_json.txt
+  │  │
+  │  └─ config.yaml
+  │
+  ├─ data/
+  │  ├─ db/
+  │  ├─ logs/
+  │  │  ├─ log_2026_02_08_11_36_41/
+  │  │  │  ├─ chain.jsonlfile
+  │  │  │  ├─ chat.jsonlfile
+  │  │  │  ├─ errors.jsonlfile
+  │  │  │  ├─ internal_node.jsonlfile
+  │  │  │  ├─ internal_python.jsonlfile
+  │  │  │  ├─ internals.jsonlfile
+  │  │  │  ├─ system.jsonlfile
+  │  │  │  ├─ tools.jsonlfile
+  │  │  │  ├─ trace_brain.jsonlfile
+  │  │  │  └─ trace_llmbot.jsonl
+  │  │  │
+  │  │  ├─ log_2026_02_08_11_53_44/
+  │  │  │  ├─ chain.jsonlfile
+  │  │  │  ├─ chat.jsonlfile
+  │  │  │  ├─ errors.jsonlfile
+  │  │  │  ├─ internal_node.jsonlfile
+  │  │  │  ├─ internal_python.jsonlfile
+  │  │  │  ├─ internals.jsonlfile
+  │  │  │  ├─ system.jsonlfile
+  │  │  │  ├─ tools.jsonlfile
+  │  │  │  ├─ trace_brain.jsonlfile
+  │  │  │  └─ trace_llmbot.jsonl
+  │  │  │
+  │  │  ├─ log_2026_02_08_12_04_48/
+  │  │  │  ├─ chain.jsonlfile
+  │  │  │  ├─ chat.jsonlfile
+  │  │  │  ├─ errors.jsonlfile
+  │  │  │  ├─ internal_node.jsonlfile
+  │  │  │  ├─ internal_python.jsonlfile
+  │  │  │  ├─ internals.jsonlfile
+  │  │  │  ├─ system.jsonlfile
+  │  │  │  ├─ tools.jsonlfile
+  │  │  │  ├─ trace_brain.jsonlfile
+  │  │  │  └─ trace_llmbot.jsonl
+  │  │  │
+  │  │  ├─ log_2026_02_08_13_46_53/
+  │  │  │  ├─ chain.jsonlfile
+  │  │  │  ├─ chat.jsonlfile
+  │  │  │  ├─ errors.jsonlfile
+  │  │  │  ├─ internal_node.jsonlfile
+  │  │  │  ├─ internal_python.jsonlfile
+  │  │  │  ├─ internals.jsonlfile
+  │  │  │  ├─ system.jsonlfile
+  │  │  │  ├─ tools.jsonlfile
+  │  │  │  ├─ trace_brain.jsonlfile
+  │  │  │  └─ trace_llmbot.jsonl
+  │  │  │
+  │  │  ├─ log_2026_02_08_14_32_18/
+  │  │  │  ├─ chain.jsonlfile
+  │  │  │  ├─ chat.jsonlfile
+  │  │  │  ├─ errors.jsonlfile
+  │  │  │  ├─ internal_node.jsonlfile
+  │  │  │  ├─ internal_python.jsonlfile
+  │  │  │  ├─ internals.jsonlfile
+  │  │  │  ├─ system.jsonlfile
+  │  │  │  ├─ tools.jsonlfile
+  │  │  │  ├─ trace_brain.jsonlfile
+  │  │  │  └─ trace_llmbot.jsonl
+  │  │  │
+  │  │  ├─ log_2026_02_08_14_48_32/
+  │  │  │  ├─ chain.jsonlfile
+  │  │  │  ├─ chat.jsonlfile
+  │  │  │  ├─ errors.jsonlfile
+  │  │  │  ├─ internal_node.jsonlfile
+  │  │  │  ├─ internal_python.jsonlfile
+  │  │  │  ├─ internals.jsonlfile
+  │  │  │  ├─ system.jsonlfile
+  │  │  │  ├─ tools.jsonlfile
+  │  │  │  ├─ trace_brain.jsonlfile
+  │  │  │  └─ trace_llmbot.jsonl
+  │  │  │
+  │  │  ├─ log_2026_02_08_15_09_10/
+  │  │  │  ├─ chain.jsonlfile
+  │  │  │  ├─ chat.jsonlfile
+  │  │  │  ├─ errors.jsonlfile
+  │  │  │  ├─ internal_node.jsonlfile
+  │  │  │  ├─ internal_python.jsonlfile
+  │  │  │  ├─ internals.jsonlfile
+  │  │  │  ├─ system.jsonlfile
+  │  │  │  ├─ tools.jsonlfile
+  │  │  │  ├─ trace_brain.jsonlfile
+  │  │  │  └─ trace_llmbot.jsonl
+  │  │  │
+  │  │  ├─ log_2026_02_08_15_47_33/
+  │  │  │  ├─ chain.jsonlfile
+  │  │  │  ├─ chat.jsonlfile
+  │  │  │  ├─ errors.jsonlfile
+  │  │  │  ├─ internal_node.jsonlfile
+  │  │  │  ├─ internal_python.jsonlfile
+  │  │  │  ├─ internals.jsonlfile
+  │  │  │  ├─ system.jsonlfile
+  │  │  │  ├─ tools.jsonlfile
+  │  │  │  ├─ trace_brain.jsonlfile
+  │  │  │  └─ trace_llmbot.jsonl
+  │  │  │
+  │  │  ├─ log_2026_02_08_15_56_49/
+  │  │  │  ├─ chain.jsonlfile
+  │  │  │  ├─ chat.jsonlfile
+  │  │  │  ├─ errors.jsonlfile
+  │  │  │  ├─ internal_node.jsonlfile
+  │  │  │  ├─ internal_python.jsonlfile
+  │  │  │  ├─ internals.jsonlfile
+  │  │  │  ├─ system.jsonlfile
+  │  │  │  ├─ tools.jsonlfile
+  │  │  │  ├─ trace_brain.jsonlfile
+  │  │  │  └─ trace_llmbot.jsonl
+  │  │  │
+  │  │  └─ log_2026_02_08_16_22_16/
+  │  │    ├─ chain.jsonlfile
+  │  │    ├─ chat.jsonlfile
+  │  │    ├─ errors.jsonlfile
+  │  │    ├─ internal_node.jsonlfile
+  │  │    ├─ internal_python.jsonlfile
+  │  │    ├─ internals.jsonlfile
+  │  │    ├─ system.jsonlfile
+  │  │    ├─ tools.jsonlfile
+  │  │    ├─ trace_brain.jsonlfile
+  │  │    └─ trace_llmbot.jsonl
+  │  │
+  │  ├─ readme_logs.mdfile
+  │  └─ system_stacks_info.json
+  │
+  ├─ docs/
+  │  ├─ 1-Notlarım.mdfile
+  │  ├─ 2-Günlük.mdfile
+  │  ├─ 3-file-tree.mdfile
+  │  └─ 4-folder_tree.txt
+  │
+  ├─ internal/
+  │  ├─ agent/
+  │  │  ├─ brain.gofile
+  │  │  ├─ engine.gofile
+  │  │  ├─ errors.gofile
+  │  │  ├─ events.gofile
+  │  │  ├─ history.gofile
+  │  │  ├─ prompts.gofile
+  │  │  └─ structs.go
+  │  │
+  │  ├─ clients/
+  │  │  └─ ollama/
+  │  │    ├─ client.gofile
+  │  │    ├─ examples.gofile
+  │  │    └─ types.go
+  │  │
+  │  ├─ common/
+  │  │  └─ stacksInfo.go
+  │  │
+  │  ├─ core/
+  │  │  ├─ config.gofile
+  │  │  ├─ init.gofile
+  │  │  └─ logger.go
+  │  │
+  │  ├─ models/
+  │  │  └─ types.go
+  │  │
+  │  ├─ server/
+  │  │  ├─ hub.gofile
+  │  │  ├─ log_sink.gofile
+  │  │  ├─ server.gofile
+  │  │  ├─ structs.gofile
+  │  │  └─ websocket.go
+  │  │
+  │  └─ skills/
+  │    ├─ readFile.pyfile
+  │    ├─ runCmd.pyfile
+  │    ├─ tools.jsonfile
+  │    └─ useTool.go
+  │
+  ├─ runtimes/
+  │  ├─ node-v25.4.0/
+  │  │  ├─ node_modules/
+  │  │  ├─ package.jsonfile
+  │  │  ├─ pnpm-lock.yamlfile
+  │  │  └─ pnpm-workspace.yaml
+  │  │
+  │  └─ python-3.14.2/
+  │    ├─ .venv/
+  │    └─ requirements.txt
+  │
+  ├─ scripts/
+  │  ├─ build.shfile
+  │  ├─ custom_tree.gofile
+  │  ├─ custom_tree.pyfile
+  │  ├─ download_third_party.shfile
+  │  ├─ file_analyzer.pyfile
+  │  └─ generate_tree.py
+  │
+  ├─ web/
+  │  └─ static/
+  │    ├─ third_party/
+  │    ├─ viewLogs/
+  │    │  └─ index.html
+  │    │
+  │    ├─ app.jsfile
+  │    ├─ favicon.pngfile
+  │    └─ index.html
+  │
+  ├─ _folder_analysis_results.txtfile
+  ├─ example.txtfile
+  ├─ go.modfile
+  ├─ go.sumfile
+  ├─ Makefilefile
+  └─ README.md
+

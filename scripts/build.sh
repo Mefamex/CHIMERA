@@ -10,8 +10,6 @@ go get gopkg.in/yaml.v3
 go get github.com/gofiber/fiber/v2
 go get github.com/gofiber/websocket/v2
 
-
-
 mkdir -p runtimes/python-3.14.2
 cd runtimes/python-3.14.2
 python -m venv .venv
@@ -30,4 +28,11 @@ mkdir -p runtimes/node-v25.4.0
 cd runtimes/node-v25.4.0
 pnpm init
 pnpm add puppeteer socket.io-client
+cd ../..
+
+sudo pacman -S xorg-server-devel libxcursor libxrandr libxinerama libxi
+cd ../cmd/log-gui
+go mod init log-gui
+go install .
+go mod tidy
 cd ../..

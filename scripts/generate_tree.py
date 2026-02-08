@@ -6,12 +6,17 @@ from rich.tree import Tree
 from rich.console import Console
 from rich.markup import escape
 
+
+OUTPUT_FILE = Path(".","docs","3-file-tree.md")
+
+
+
 def get_git_spec(root: Path):
     """.gitignore dosyasını okur ve pathspec nesnesi döner."""
     gitignore = root / ".gitignore"
     patterns = [".git"] # Varsayılan olarak .git'i yoksay
     if gitignore.exists(): patterns.extend(gitignore.read_text().splitlines())
-    patterns.extend(["!file-tree.md"])
+    patterns.extend([f"!{OUTPUT_FILE}"])
     return pathspec.PathSpec.from_lines('gitwildmatch', patterns)
 
 def build_tree(directory: Path, tree: Tree, spec: pathspec.PathSpec, root_dir: Path):
@@ -40,6 +45,6 @@ console.print(tree)
 
 # Markdown dosyasına yaz (Regex kısmını sadeleştirdim)
 output_content = "```text\n" + re.sub(r'(?m)^(┣━━ 📂)', lambda m: '┃\n' + m.group(1), string_io.getvalue()) + "```"
-(root_path / "file-tree.md").write_text(output_content, encoding="utf-8")
+(root_path / OUTPUT_FILE).write_text(output_content, encoding="utf-8")
 
-print(f"Ağaç başarıyla oluşturuldu: file-tree.md")
+print(f"Ağaç başarıyla oluşturuldu: {root_path / OUTPUT_FILE}")

@@ -14,6 +14,7 @@ type Prompts struct {
 	CmdAgent   string
 	Browser    string
 	Researcher string
+	Formatter  string
 }
 
 func readPromptFile(promptsDir, filename string, required bool) (string, error) {
@@ -59,6 +60,10 @@ func LoadPrompts(promptsDir string) (Prompts, error) {
 	if err != nil {
 		return Prompts{}, err
 	}
+	formatter, err := readPromptFile(promptsDir, "json_formatter.txt", false)
+	if err != nil {
+		return Prompts{}, err
+	}
 
 	return Prompts{
 		Start:      start,
@@ -67,5 +72,6 @@ func LoadPrompts(promptsDir string) (Prompts, error) {
 		CmdAgent:   cmdAgent,
 		Browser:    browser,
 		Researcher: researcher,
+		Formatter:  formatter,
 	}, nil
 }
